@@ -1,0 +1,16 @@
+[
+  { "id": "text", "name": "Текст" },
+  { "id": "code", "name": "Код" },
+  { "id": "image", "name": "Изображение" },
+  { 
+    "id": "table", 
+    "name": "Таблица",
+    "extraFields": [
+      {
+        "id": "columns",
+        "label": "Заголовки таблицы",
+        "type": "list"
+      }
+    ]
+  }
+]
