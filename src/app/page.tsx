@@ -93,7 +93,7 @@ export default function PromptBuilderPrototype() {
               experts={experts}
               onExpertsChange={setExperts}
               currentIndustryExperts={currentIndustryExperts}
-              show={["text", "table", "code", "calculator"].includes(format)}
+              show={["text", "table", "presentation", "code", "calculator"].includes(format)}
             />
 
             <SubOptionsRenderer
@@ -109,7 +109,7 @@ export default function PromptBuilderPrototype() {
               values={extraValues}
               onValueChange={setExtraValue}
             />
-            
+
             <StaffingFieldsRenderer
               format={format}
               subOption={subOption}
@@ -121,7 +121,7 @@ export default function PromptBuilderPrototype() {
             <CommonFieldsRenderer
               values={extraValues}
               onValueChange={setExtraValue}
-              show={["text", "table", "code", "image"].includes(format)}
+              show={["text", "table", "presentation", "code", "calculator"].includes(format)}
             />
 
             <ExclusionsRenderer
@@ -130,7 +130,7 @@ export default function PromptBuilderPrototype() {
               exclusions={exclusions}
               onAddExclusion={addExclusion}
               onRemoveExclusion={removeExclusion}
-              show={["text", "table"].includes(format)}
+              show={["text", "table", "presentation"].includes(format)}
             />
 
             <UserTaskRenderer
