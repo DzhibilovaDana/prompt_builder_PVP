@@ -165,8 +165,6 @@ const buildFormatInstruction = useCallback((fmtId: string): string => {
   return parts.filter((p, i, a) => p && a.indexOf(p) === i).join("\n"); 
 }, [config, outputFormats, subOption, extraValues]);
 
-// после buildFormatInstruction(...)
-
 const buildPrompt = useCallback((): string => {
   if (format === "staffing") {
     const fmt = outputFormats.find(f => f.id === "staffing");
@@ -234,24 +232,40 @@ const buildPrompt = useCallback((): string => {
   for (const f of commons) {
     const val = extraValues[f.id];
 
-    if (f.type === "boolean") {
-      if (val === true) {
-        const t = apply(f.promptTemplate, "да");
-        lines.push(t || `${f.label}: да.`);
-      }
+    // --- ВАЖНО: включаем ТОЛЬКО если пользователь явно задал значение ---
+    const hasUserValue =
+      f.type === "boolean"
+        ? val === true
+        : f.type === "list"
+          ? nonEmpty(val) && val !== "Выберите вариант"
+          : /* text/other */ nonEmpty(val);
+
+    if (!hasUserValue) {
+      // Никаких дефолтов/статик — вообще ничего не добавляем
       continue;
     }
 
-    if (!nonEmpty(val) || val === "Выберите вариант") {
-      const def = getDefaultPrompt(config!, "common", f.id);
-      if (def) lines.push(def);
+    if (f.type === "boolean") {
+      // сюда попадём только при true
+      const t = apply(f.promptTemplate, "да");
+      if (t) lines.push(t);
+      else lines.push(`${f.label}: да.`);
       continue;
     }
 
     if (f.type === "list") {
-      // используем ту же функцию, что и для format list
-      const t = getPromptFromSelection(config!, "common", f.id, String(val));
-      if (t) lines.push(t);
+      // если есть item-подсказка — используем её
+      const item = f.items?.find(i => i.value === val);
+      const t = item ? getPromptFromSelection(config!, "common", f.id, String(val)) : undefined;
+      if (t) {
+        lines.push(t);
+      } else {
+        // иначе fallback к шаблону поля/метке
+        const tpl = f.promptTemplate || "";
+        if (hasValuePlaceholder(tpl)) lines.push(apply(tpl, String(val)));
+        else if (tpl.trim()) lines.push(tpl);
+        else lines.push(`${f.label}: ${val}.`);
+      }
       continue;
     }
 
