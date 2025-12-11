@@ -8,10 +8,9 @@ interface PromptResultProps {
   refine: string;
   onRefineChange: (value: string) => void;
   onRefineApply: () => void;
-
-  // НОВОЕ:
   onExportMarkdown: () => void;
   onExportHtml: () => void;
+  onAddFavorite: () => void;
 }
 
 export const PromptResult: React.FC<PromptResultProps> = ({
@@ -23,6 +22,7 @@ export const PromptResult: React.FC<PromptResultProps> = ({
   onRefineApply,
   onExportMarkdown,
   onExportHtml,
+  onAddFavorite,
 }) => {
   const disabled = !generatedPrompt;
 
@@ -30,7 +30,7 @@ export const PromptResult: React.FC<PromptResultProps> = ({
     <div className="mt-6 rounded-2xl border bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-lg font-semibold">Сформированный промпт</h3>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={onCopy}
             disabled={disabled}
@@ -43,7 +43,6 @@ export const PromptResult: React.FC<PromptResultProps> = ({
             {copied ? "Скопировано ✓" : "Копировать"}
           </button>
 
-          {/* НОВО: экспорт в Markdown */}
           <button
             onClick={onExportMarkdown}
             disabled={disabled}
@@ -56,7 +55,6 @@ export const PromptResult: React.FC<PromptResultProps> = ({
             .md
           </button>
 
-          {/* НОВО: экспорт в HTML */}
           <button
             onClick={onExportHtml}
             disabled={disabled}
@@ -67,6 +65,18 @@ export const PromptResult: React.FC<PromptResultProps> = ({
             }`}
           >
             .html
+          </button>
+
+          <button
+            onClick={onAddFavorite}
+            disabled={disabled}
+            className={`rounded-xl px-3 py-1 text-sm ${
+              !disabled
+                ? "border border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                : "cursor-not-allowed border bg-gray-100 text-gray-400"
+            }`}
+          >
+            ★ В избранное
           </button>
         </div>
       </div>
@@ -82,7 +92,7 @@ export const PromptResult: React.FC<PromptResultProps> = ({
           <input
             value={refine}
             onChange={(e) => onRefineChange(e.target.value)}
-            placeholder="Напр.: «перепиши короче»"
+            placeholder='Напр.: «перепиши короче»'
             className="w-full rounded-xl border px-3 py-2"
           />
           <button

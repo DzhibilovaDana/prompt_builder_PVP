@@ -2,6 +2,10 @@
 import React from "react";
 
 export const Sidebar: React.FC = () => {
+  const scrollToFavorites = () => {
+    const el = document.getElementById("favorites-section");
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   return (
     <aside className="flex flex-col gap-6">
       <div className="rounded-2xl border bg-white p-5 shadow-sm">
@@ -20,14 +24,21 @@ export const Sidebar: React.FC = () => {
       <div className="rounded-2xl border bg-white p-5 shadow-sm">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-base font-semibold">Золотые промпты</h3>
-          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">скоро</span>
+          {/* можно поменять бейдж */}
+          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
+            избранное
+          </span>
         </div>
-        <ul className="space-y-2 text-sm text-gray-600">
-          <li className="rounded-xl border p-3">Анализ конкурентного ландшафта</li>
-          <li className="rounded-xl border p-3">JTBD-интервью: сценарий вопросов</li>
-          <li className="rounded-xl border p-3">SQL-ассистент для витрин данных</li>
-        </ul>
-        <p className="mt-2 text-xs text-gray-500">Будет доступен поиск, теги и предпросмотр.</p>
+        <button
+          type="button"
+          onClick={scrollToFavorites}
+          className="w-full rounded-xl border px-3 py-2 text-sm hover:bg-gray-50"
+        >
+          Открыть список избранных
+        </button>
+        <p className="mt-2 text-xs text-gray-500">
+          Используй конструктор, чтобы сохранить удачные промпты.
+        </p>
       </div>
 
       <div className="rounded-2xl border bg-white p-5 shadow-sm">

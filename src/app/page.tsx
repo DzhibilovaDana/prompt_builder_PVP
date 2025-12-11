@@ -3,6 +3,8 @@
 
 import React, { useEffect, useState } from "react";
 import { usePromptBuilder } from "@/hooks/usePromptBuilder";
+import { useFavorites } from "@/hooks/useFavorites";  
+import { FavoritesList } from "@/components/FavoritesList"; 
 import { Header } from "@/components/Header";
 import { FormatSelector } from "@/components/FormatSelector";
 import { IndustryExpertSelector } from "@/components/IndustryExpertSelector";
@@ -59,6 +61,8 @@ export default function PromptBuilderPrototype() {
     handleGenerate,
   } = usePromptBuilder(config);
 
+  const { favorites, addFavorite, removeFavorite } = useFavorites();
+
   useEffect(() => {
     (async () => {
       const res = await fetch("/api/config", { cache: "no-store" });
@@ -80,6 +84,23 @@ export default function PromptBuilderPrototype() {
   const handleExportHtml = () => {
     if (!generatedPrompt) return;
     exportPromptAsHtml(generatedPrompt);
+  };
+
+  const handleAddFavorite = () => {
+    if (!generatedPrompt) return;
+
+    const title =
+      typeof userTask === "string" && userTask.trim().length > 0
+        ? userTask.trim()
+        : "Промпт без названия";
+
+    addFavorite(generatedPrompt, title);
+  };
+
+  const handleUseFavorite = (prompt: string) => {
+    setGeneratedPrompt(prompt);
+    setRefine("");
+    setCopied(false);
   };
 
   return (
@@ -152,17 +173,23 @@ export default function PromptBuilderPrototype() {
             <ActionButtons onGenerate={handleGenerate} />
           </div>
 
-            <PromptResult
-          generatedPrompt={generatedPrompt}
-          copied={copied}
-          onCopy={() => handleCopy()}
-          refine={refine}
-          onRefineChange={setRefine}
-          onRefineApply={() => setGeneratedPrompt(buildPrompt())}
-          onExportMarkdown={handleExportMarkdown}
-          onExportHtml={handleExportHtml}
-        />
+          <PromptResult
+            generatedPrompt={generatedPrompt}
+            copied={copied}
+            onCopy={() => handleCopy()}
+            refine={refine}
+            onRefineChange={setRefine}
+            onRefineApply={() => setGeneratedPrompt(buildPrompt())}
+            onExportMarkdown={handleExportMarkdown}
+            onExportHtml={handleExportHtml}
+            onAddFavorite={handleAddFavorite}        // 🔹 НОВОЕ
+          />
 
+          <FavoritesList
+            favorites={favorites}
+            onUseFavorite={handleUseFavorite}
+            onDeleteFavorite={removeFavorite}
+          />
         </section>
 
         <Sidebar />
