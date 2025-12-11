@@ -17,7 +17,7 @@ import { PromptResult } from "@/components/PromptResult";
 import { Sidebar } from "@/components/Sidebar";
 import { Footer } from "@/components/Footer";
 import type { AppConfig } from "@/lib/config";
-
+import { exportPromptAsMarkdown, exportPromptAsHtml } from "@/lib/exportPrompt";
 /* почитать как корректно разместить это на гите
 сборка на гит почитать
 разделение данных и кода
@@ -70,6 +70,17 @@ export default function PromptBuilderPrototype() {
 
   if (loadingCfg) return <div className="p-6 text-sm text-gray-600">Загрузка конфигурации…</div>;
   if (!config) return <div className="p-6 text-sm text-red-600">Не удалось загрузить конфигурацию.</div>;
+
+  // 🔽 Хендлеры экспорта
+  const handleExportMarkdown = () => {
+    if (!generatedPrompt) return;
+    exportPromptAsMarkdown(generatedPrompt);
+  };
+
+  const handleExportHtml = () => {
+    if (!generatedPrompt) return;
+    exportPromptAsHtml(generatedPrompt);
+  };
 
   return (
     <div className="min-h-screen w-full bg-gray-50 text-gray-900">
@@ -141,14 +152,17 @@ export default function PromptBuilderPrototype() {
             <ActionButtons onGenerate={handleGenerate} />
           </div>
 
-          <PromptResult
-            generatedPrompt={generatedPrompt}
-            copied={copied}
-            onCopy={() => handleCopy()}
-            refine={refine}
-            onRefineChange={setRefine}
-            onRefineApply={() => setGeneratedPrompt(buildPrompt())}
-          />
+            <PromptResult
+          generatedPrompt={generatedPrompt}
+          copied={copied}
+          onCopy={() => handleCopy()}
+          refine={refine}
+          onRefineChange={setRefine}
+          onRefineApply={() => setGeneratedPrompt(buildPrompt())}
+          onExportMarkdown={handleExportMarkdown}
+          onExportHtml={handleExportHtml}
+        />
+
         </section>
 
         <Sidebar />

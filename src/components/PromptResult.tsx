@@ -8,6 +8,10 @@ interface PromptResultProps {
   refine: string;
   onRefineChange: (value: string) => void;
   onRefineApply: () => void;
+
+  // НОВОЕ:
+  onExportMarkdown: () => void;
+  onExportHtml: () => void;
 }
 
 export const PromptResult: React.FC<PromptResultProps> = ({
@@ -17,7 +21,11 @@ export const PromptResult: React.FC<PromptResultProps> = ({
   refine,
   onRefineChange,
   onRefineApply,
+  onExportMarkdown,
+  onExportHtml,
 }) => {
+  const disabled = !generatedPrompt;
+
   return (
     <div className="mt-6 rounded-2xl border bg-white p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
@@ -25,16 +33,47 @@ export const PromptResult: React.FC<PromptResultProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={onCopy}
-            disabled={!generatedPrompt}
-            className={`rounded-xl px-3 py-1 text-sm ${generatedPrompt ? "border bg-white hover:bg-gray-50" : "cursor-not-allowed border bg-gray-100 text-gray-400"}`}
+            disabled={disabled}
+            className={`rounded-xl px-3 py-1 text-sm ${
+              !disabled
+                ? "border bg-white hover:bg-gray-50"
+                : "cursor-not-allowed border bg-gray-100 text-gray-400"
+            }`}
           >
             {copied ? "Скопировано ✓" : "Копировать"}
+          </button>
+
+          {/* НОВО: экспорт в Markdown */}
+          <button
+            onClick={onExportMarkdown}
+            disabled={disabled}
+            className={`rounded-xl px-3 py-1 text-sm ${
+              !disabled
+                ? "border bg-white hover:bg-gray-50"
+                : "cursor-not-allowed border bg-gray-100 text-gray-400"
+            }`}
+          >
+            .md
+          </button>
+
+          {/* НОВО: экспорт в HTML */}
+          <button
+            onClick={onExportHtml}
+            disabled={disabled}
+            className={`rounded-xl px-3 py-1 text-sm ${
+              !disabled
+                ? "border bg-white hover:bg-gray-50"
+                : "cursor-not-allowed border bg-gray-100 text-gray-400"
+            }`}
+          >
+            .html
           </button>
         </div>
       </div>
 
       <pre className="max-h-[420px] overflow-auto rounded-xl bg-gray-900 p-4 text-sm text-gray-100">
-        {generatedPrompt || "Здесь появится итоговый промпт после нажатия кнопки \"Сгенерировать промпт\"."}
+        {generatedPrompt ||
+          'Здесь появится итоговый промпт после нажатия кнопки "Сгенерировать промпт".'}
       </pre>
 
       <div className="mt-4">
@@ -48,8 +87,12 @@ export const PromptResult: React.FC<PromptResultProps> = ({
           />
           <button
             onClick={onRefineApply}
-            disabled={!generatedPrompt}
-            className={`shrink-0 rounded-xl px-4 py-2 text-white ${generatedPrompt ? "bg-gray-900 hover:opacity-90" : "cursor-not-allowed bg-gray-400"}`}
+            disabled={disabled}
+            className={`shrink-0 rounded-xl px-4 py-2 text-white ${
+              !disabled
+                ? "bg-gray-900 hover:opacity-90"
+                : "cursor-not-allowed bg-gray-400"
+            }`}
           >
             Применить
           </button>
