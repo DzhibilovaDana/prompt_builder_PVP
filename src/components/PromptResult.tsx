@@ -1,3 +1,5 @@
+"use client";
+
 import React from "react";
 
 interface PromptResultProps {
@@ -32,6 +34,23 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#39;");
 }
 
+async function copyWithFallback(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return;
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "true");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+  }
+}
+
 export const PromptResult: React.FC<PromptResultProps> = ({
   generatedPrompt,
   copied,
@@ -41,6 +60,12 @@ export const PromptResult: React.FC<PromptResultProps> = ({
   onRefineApply,
 }) => {
   const canExport = Boolean(generatedPrompt);
+
+  const handleCopy = async () => {
+    if (!generatedPrompt) return;
+    await copyWithFallback(generatedPrompt);
+    onCopy();
+  };
 
   const handleDownloadTxt = () => {
     downloadFile("prompt.txt", generatedPrompt, "text/plain;charset=utf-8");
@@ -74,7 +99,8 @@ export const PromptResult: React.FC<PromptResultProps> = ({
 
         <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={onCopy}
+            type="button"
+            onClick={handleCopy}
             disabled={!canExport}
             className={`rounded-xl px-3 py-1 text-sm ${
               canExport
@@ -86,6 +112,7 @@ export const PromptResult: React.FC<PromptResultProps> = ({
           </button>
 
           <button
+            type="button"
             onClick={handleDownloadTxt}
             disabled={!canExport}
             className={`rounded-xl px-3 py-1 text-sm ${
@@ -98,6 +125,7 @@ export const PromptResult: React.FC<PromptResultProps> = ({
           </button>
 
           <button
+            type="button"
             onClick={handleDownloadMd}
             disabled={!canExport}
             className={`rounded-xl px-3 py-1 text-sm ${
@@ -110,6 +138,7 @@ export const PromptResult: React.FC<PromptResultProps> = ({
           </button>
 
           <button
+            type="button"
             onClick={handleDownloadHtml}
             disabled={!canExport}
             className={`rounded-xl px-3 py-1 text-sm ${
@@ -138,6 +167,7 @@ export const PromptResult: React.FC<PromptResultProps> = ({
             className="w-full rounded-xl border px-3 py-2"
           />
           <button
+            type="button"
             onClick={onRefineApply}
             disabled={!generatedPrompt}
             className={`shrink-0 rounded-xl px-4 py-2 text-white ${
