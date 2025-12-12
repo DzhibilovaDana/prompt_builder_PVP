@@ -1,4 +1,3 @@
-// components/PromptResult.tsx
 import React from "react";
 
 interface PromptResultProps {
@@ -8,9 +7,29 @@ interface PromptResultProps {
   refine: string;
   onRefineChange: (value: string) => void;
   onRefineApply: () => void;
-  onExportMarkdown: () => void;
-  onExportHtml: () => void;
-  onAddFavorite: () => void;
+}
+
+function downloadFile(filename: string, content: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  URL.revokeObjectURL(url);
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 export const PromptResult: React.FC<PromptResultProps> = ({
@@ -20,22 +39,45 @@ export const PromptResult: React.FC<PromptResultProps> = ({
   refine,
   onRefineChange,
   onRefineApply,
-  onExportMarkdown,
-  onExportHtml,
-  onAddFavorite,
 }) => {
-  const disabled = !generatedPrompt;
+  const canExport = Boolean(generatedPrompt);
+
+  const handleDownloadTxt = () => {
+    downloadFile("prompt.txt", generatedPrompt, "text/plain;charset=utf-8");
+  };
+
+  const handleDownloadMd = () => {
+    const md = `\`\`\`text\n${generatedPrompt}\n\`\`\`\n`;
+    downloadFile("prompt.md", md, "text/markdown;charset=utf-8");
+  };
+
+  const handleDownloadHtml = () => {
+    const html = `<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prompt</title>
+</head>
+<body>
+  <pre style="white-space:pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;">${escapeHtml(generatedPrompt)}</pre>
+</body>
+</html>
+`;
+    downloadFile("prompt.html", html, "text/html;charset=utf-8");
+  };
 
   return (
     <div className="mt-6 rounded-2xl border bg-white p-5 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-lg font-semibold">Сформированный промпт</h3>
+
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={onCopy}
-            disabled={disabled}
+            disabled={!canExport}
             className={`rounded-xl px-3 py-1 text-sm ${
-              !disabled
+              canExport
                 ? "border bg-white hover:bg-gray-50"
                 : "cursor-not-allowed border bg-gray-100 text-gray-400"
             }`}
@@ -44,39 +86,39 @@ export const PromptResult: React.FC<PromptResultProps> = ({
           </button>
 
           <button
-            onClick={onExportMarkdown}
-            disabled={disabled}
+            onClick={handleDownloadTxt}
+            disabled={!canExport}
             className={`rounded-xl px-3 py-1 text-sm ${
-              !disabled
+              canExport
                 ? "border bg-white hover:bg-gray-50"
                 : "cursor-not-allowed border bg-gray-100 text-gray-400"
             }`}
           >
-            .md
+            Скачать TXT
           </button>
 
           <button
-            onClick={onExportHtml}
-            disabled={disabled}
+            onClick={handleDownloadMd}
+            disabled={!canExport}
             className={`rounded-xl px-3 py-1 text-sm ${
-              !disabled
+              canExport
                 ? "border bg-white hover:bg-gray-50"
                 : "cursor-not-allowed border bg-gray-100 text-gray-400"
             }`}
           >
-            .html
+            Скачать MD
           </button>
 
           <button
-            onClick={onAddFavorite}
-            disabled={disabled}
+            onClick={handleDownloadHtml}
+            disabled={!canExport}
             className={`rounded-xl px-3 py-1 text-sm ${
-              !disabled
-                ? "border border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100"
+              canExport
+                ? "border bg-white hover:bg-gray-50"
                 : "cursor-not-allowed border bg-gray-100 text-gray-400"
             }`}
           >
-            ★ В избранное
+            Скачать HTML
           </button>
         </div>
       </div>
@@ -92,16 +134,14 @@ export const PromptResult: React.FC<PromptResultProps> = ({
           <input
             value={refine}
             onChange={(e) => onRefineChange(e.target.value)}
-            placeholder='Напр.: «перепиши короче»'
+            placeholder="Напр.: «перепиши короче»"
             className="w-full rounded-xl border px-3 py-2"
           />
           <button
             onClick={onRefineApply}
-            disabled={disabled}
+            disabled={!generatedPrompt}
             className={`shrink-0 rounded-xl px-4 py-2 text-white ${
-              !disabled
-                ? "bg-gray-900 hover:opacity-90"
-                : "cursor-not-allowed bg-gray-400"
+              generatedPrompt ? "bg-gray-900 hover:opacity-90" : "cursor-not-allowed bg-gray-400"
             }`}
           >
             Применить
