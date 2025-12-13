@@ -1,50 +1,43 @@
-// lib/auth.ts
+// src/lib/auth.ts
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { AuthOptions } from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import type { NextAuthOptions } from "next-auth";
 import prisma from "@/lib/prisma";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 
-export const authOptions: AuthOptions = {
+export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
-    CredentialsProvider({
+    Credentials({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email", placeholder: "email@example.com" },
-        password: { label: "Password", type: "password" },
+        email: { label: "Email", type: "text" },
+        password: { label: "Пароль", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials) return null;
-        const { email, password } = credentials;
+        if (!credentials?.email || !credentials?.password) return null;
 
-        // Находим пользователя по email
-        const user = await prisma.user.findUnique({ where: { email } });
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email },
+        });
+
         if (!user || !user.password) return null;
 
-        const isValid = await bcrypt.compare(password, user.password);
-        if (!isValid) return null;
+        const ok = await bcrypt.compare(credentials.password, user.password);
+        if (!ok) return null;
 
-        // Возвращаем объект пользователя (без пароля)
-        const { password: _p, ...userWithoutPass } = user;
-        return userWithoutPass as any;
+        // Важно: вернуть объект пользователя
+        return { id: user.id, email: user.email, name: user.name ?? null };
       },
     }),
-    // По желанию можно добавить OAuth-провайдеры (GitHub, Google)
   ],
-  session: {
-    strategy: "jwt", // можно также "database" при желании
-  },
+  session: { strategy: "database" },
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = (user as any).id;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (token && session.user) {
-        (session.user as any).id = token.id;
+    async session({ session, user }) {
+      // чтобы на клиенте можно было достать user.id
+      if (session.user) {
+        // @ts-expect-error
+        session.user.id = user.id;
       }
       return session;
     },
