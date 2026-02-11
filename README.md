@@ -1,6 +1,8 @@
 # Prompt Builder PVP
 
-[![CI](https://github.com/<OWNER>/<REPO>/actions/workflows/ci.yml/badge.svg)](https://github.com/<OWNER>/<REPO>/actions/workflows/ci.yml)
+[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+
+> ⚠️ Замените `OWNER/REPO` на фактический путь вашего GitHub-репозитория, чтобы badge стал рабочим.
 
 Веб-приложение на Next.js для сборки «золотых промптов» через визуальный конструктор: пользователь выбирает роль, формат, индустрию, параметры и получает готовый структурированный prompt для LLM.
 
@@ -41,6 +43,13 @@
 - `db/` *(планируется)* — миграции/инициализация БД.
 - `diagrams/` *(планируется)* — архитектурные схемы.
 - `scripts/` *(планируется)* — вспомогательные скрипты.
+
+
+## Требования к окружению
+
+- Node.js **20.x** (рекомендовано для локального запуска и CI).
+- npm **10+**.
+- Docker (опционально, для контейнерного запуска).
 
 ## Быстрый старт
 
@@ -85,6 +94,17 @@ npm start      # запуск production-сервера
 
 - `OPENAI_API_KEY` — ключ API модели.
 - `DATABASE_URL` — строка подключения к БД.
+
+
+## Архитектура
+
+Архитектурные диаграммы добавлены в каталог `diagrams/`:
+
+- C4 L1 (Context): `diagrams/c4-context.mmd`
+- C4 L2 (Container): `diagrams/c4-container.mmd`
+- Deployment: `diagrams/deployment.mmd`
+
+Также добавлен чеклист соответствия критериям: `docs/compliance-checklist.md`.
 
 ## Docker
 
