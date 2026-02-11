@@ -10,7 +10,7 @@ export function cn(...classes: (string | undefined | null | false)[]) {
 }
 
 // lib/utils.ts
-export const isEmptySelection = (value: any): boolean => {
+export const isEmptySelection = (value: unknown): boolean => {
   if (!value) return true;
   if (typeof value === 'string') {
     return value.trim() === '' || 
@@ -21,6 +21,6 @@ export const isEmptySelection = (value: any): boolean => {
   return false;
 };
 
-export const hasUserMadeSelections = (extraValues: Record<string, any>): boolean => {
+export const hasUserMadeSelections = (extraValues: Record<string, unknown>): boolean => {
   return Object.values(extraValues).some(value => !isEmptySelection(value));
 };

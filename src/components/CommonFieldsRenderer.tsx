@@ -2,8 +2,8 @@
 import React from "react";
 
 interface CommonFieldsRendererProps {
-  values: Record<string, any>;
-  onValueChange: (fieldId: string, value: any) => void;
+  values: Record<string, unknown>;
+  onValueChange: (fieldId: string, value: string) => void;
   show: boolean;
 }
 
@@ -42,7 +42,7 @@ export const CommonFieldsRenderer: React.FC<CommonFieldsRendererProps> = ({
       <div>
         <label className="mb-1 block text-sm font-medium">Цель / намерение</label>
         <select
-          value={values["goal"] || ""}
+          value={typeof values["goal"] === "string" ? values["goal"] : ""}
           onChange={(e) => onValueChange("goal", e.target.value)}
           className="w-full rounded-xl border px-3 py-2"
         >
@@ -59,7 +59,7 @@ export const CommonFieldsRenderer: React.FC<CommonFieldsRendererProps> = ({
           rows={3}
           className="w-full resize-y rounded-xl border px-3 py-2"
           placeholder="Предыстория, ограничения, целевая аудитория, доменная специфика..."
-          value={values["context"] || ""}
+          value={typeof values["context"] === "string" ? values["context"] : ""}
           onChange={(e) => onValueChange("context", e.target.value)}
         />
       </div>
@@ -67,7 +67,7 @@ export const CommonFieldsRenderer: React.FC<CommonFieldsRendererProps> = ({
       <div>
         <label className="mb-1 block text-sm font-medium">Ограничения</label>
         <select
-          value={values["constraints"] || ""}
+          value={typeof values["constraints"] === "string" ? values["constraints"] : ""}
           onChange={(e) => onValueChange("constraints", e.target.value)}
           className="w-full rounded-xl border px-3 py-2"
         >
@@ -84,7 +84,7 @@ export const CommonFieldsRenderer: React.FC<CommonFieldsRendererProps> = ({
           rows={3}
           className="w-full resize-y rounded-xl border px-3 py-2"
           placeholder="Вход → выход. Используется для сложных форматов."
-          value={values["example"] || ""}
+          value={typeof values["example"] === "string" ? values["example"] : ""}
           onChange={(e) => onValueChange("example", e.target.value)}
         />
       </div>

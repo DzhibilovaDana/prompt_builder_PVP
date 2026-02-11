@@ -6,8 +6,8 @@ interface Props {
   format: string;
   subOption: string;
   formats: Format[];
-  values: Record<string, any>;
-  onValueChange: (fieldId: string, value: any) => void;
+  values: Record<string, unknown>;
+  onValueChange: (fieldId: string, value: string) => void;
 }
 
 export const StaffingFieldsRenderer: React.FC<Props> = ({
@@ -21,18 +21,21 @@ export const StaffingFieldsRenderer: React.FC<Props> = ({
 
   return (
     <div className="mt-4 space-y-4">
-      {fields.map(field => (
+      {fields.map(field => {
+        const fieldValue = typeof values[field.id] === "string" ? (values[field.id] as string) : "";
+        return (
         <div key={field.id}>
           <label className="mb-1 block text-sm font-medium">{field.label}</label>
           {field.hint && <span className="block text-xs text-gray-500 mt-0.5">{field.hint}</span>}
           <input
             type="text"
             className="w-full rounded-xl border px-3 py-2"
-            value={values[field.id] || ""}
+            value={fieldValue}
             onChange={(e) => onValueChange(field.id, e.target.value)}
           />
         </div>
-      ))}
+      );
+      })}
     </div>
   );
 };

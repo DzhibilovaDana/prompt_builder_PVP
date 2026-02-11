@@ -9,13 +9,15 @@ import { getPromptFromSelection, getSubOptionPrompt } from "@/lib/promptTemplate
 //   getSubOptionPrompt  
 // } from "@/lib/promptTemplates";
 
+type FieldValue = string | boolean | undefined;
+
 // вспомогательная подстановка
 const apply = (tpl?: string, v?: string) =>
   (tpl || "").replace(/\{\{\s*value\s*\}\}/g, v ?? "").trim();
 const hasValuePlaceholder = (tpl?: string) => !!tpl && /\{\{\s*value\s*\}\}/i.test(tpl || "");
-const nonEmpty = (v: any) => typeof v === "string" ? v.trim().length > 0 : !!v;
+const nonEmpty = (v: unknown) => typeof v === "string" ? v.trim().length > 0 : !!v;
 // поле считается "требующим ввода", если это text и шаблон реально ожидает {{value}}
-const requiresUserInput = (field: any) =>
+const requiresUserInput = (field: { type?: string; promptTemplate?: string }) =>
   field?.type === "text" && hasValuePlaceholder(field?.promptTemplate || "");
 
 
@@ -30,14 +32,14 @@ export const usePromptBuilder = (config: AppConfig | null) => {
   const [generatedPrompt, setGeneratedPrompt] = useState<string>("");
   const [refine, setRefine] = useState<string>("");
   const [copied, setCopied] = useState<boolean>(false);
-  const [extraValues, setExtraValues] = useState<Record<string, any>>({});
+  const [extraValues, setExtraValues] = useState<Record<string, FieldValue>>({});
 
   const currentIndustryExperts = useMemo(() => {
     if (!config) return [];
     return config.industries.find((i) => i.name === industry)?.experts.map((e) => e.name) ?? [];
   }, [config, industry]);
 
-  const outputFormats: Format[] = config?.formats ?? [];
+  const outputFormats = useMemo<Format[]>(() => config?.formats ?? [], [config]);
 
   const addExclusion = useCallback(() => {
     const v = exclusionInput.trim();
@@ -287,7 +289,7 @@ const buildPrompt = useCallback((): string => {
     lines.push(`Уточнение: ${refine.trim()}.`);
   }
   return lines.join("\n");
-}, [format, subOption, industry, extraValues, refine, buildRolePrompt, exclusions, buildFormatInstruction, userTask, outputFormats]);
+}, [config, format, subOption, industry, extraValues, refine, buildRolePrompt, exclusions, buildFormatInstruction, userTask, outputFormats]);
 
 
   const handleCopy = useCallback(async (text?: string) => {
@@ -323,7 +325,7 @@ const handleGenerate = useCallback(() => {
 }, [buildPrompt, handleCopy, format, subOption, industry, experts, extraValues, userTask]);
 
 // --- setExtraValue: сохраняем и raw, и normalized ключ ---
-const setExtraValue = useCallback((fieldId: string, value: any) => {
+const setExtraValue = useCallback((fieldId: string, value: FieldValue) => {
   setExtraValues(prev => {
     const next = { ...prev, [fieldId]: value };
 
@@ -340,14 +342,6 @@ const setExtraValue = useCallback((fieldId: string, value: any) => {
     console.log("🔁 setExtraValue stored:", { fieldId, normalized, value });
     return next;
   });
-}, [format]);
-
-
-// --- эффект: при смене формата сбрасываем extraValues и subOption, чтобы старые значения не мешали ---
-useEffect(() => {
-  setSubOption("");
-  setExtraValues({});
-  console.log("🔄 format changed, cleared subOption and extraValues. New format:", format);
 }, [format]);
 
 
