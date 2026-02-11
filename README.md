@@ -1,9 +1,5 @@
 # Prompt Builder PVP
 
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
-
-> ⚠️ Замените `OWNER/REPO` на фактический путь вашего GitHub-репозитория, чтобы badge стал рабочим.
-
 Веб-приложение на Next.js для сборки «золотых промптов» через визуальный конструктор: пользователь выбирает роль, формат, индустрию, параметры и получает готовый структурированный prompt для LLM.
 
 ## Vision и Mission
