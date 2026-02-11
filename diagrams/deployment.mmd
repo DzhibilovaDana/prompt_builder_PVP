@@ -1,0 +1,15 @@
+%% Deployment Diagram
+flowchart LR
+  U[Пользовательский браузер] -->|HTTPS| APP[Next.js приложение\n(Node.js runtime)]
+  APP -->|read/write| CFG[(src/data/config.json)]
+  APP -. planned .-> DB[(SQLite/PostgreSQL)]
+  APP -. planned HTTPS API .-> LLM[OpenAI/LLM Provider]
+
+  subgraph CI[GitHub Actions]
+    C1[checkout]
+    C2[setup-node 20]
+    C3[npm ci]
+    C4[npm run lint]
+    C5[npm run build]
+    C1-->C2-->C3-->C4-->C5
+  end

@@ -1,0 +1,19 @@
+%% C4 Level 2 (Container)
+C4Container
+    title Prompt Builder PVP - C4 L2 Container Diagram
+
+    Person(user, "Пользователь")
+    Person(admin, "Администратор")
+
+    System_Boundary(pb, "Prompt Builder PVP") {
+      Container(web, "Next.js Web App", "TypeScript, React", "UI конструктора промптов")
+      Container(api, "API Routes", "Next.js Route Handlers", "Отдаёт конфиг форматов/индустрий")
+      ContainerDb(cfg, "Config JSON", "JSON file", "Хранение конфигурации MVP")
+      ContainerDb(db, "SQLite/PostgreSQL (planned)", "Prisma (MUP)", "Хранение шаблонов, избранного, версий")
+    }
+
+    Rel(user, web, "Использует", "HTTPS")
+    Rel(admin, web, "Администрирует", "HTTPS")
+    Rel(web, api, "Запрашивает конфиги", "HTTP (internal)")
+    Rel(api, cfg, "Читает/пишет", "FS")
+    Rel(api, db, "Будет читать/писать", "SQL (MUP)")

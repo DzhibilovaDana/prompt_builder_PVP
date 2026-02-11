@@ -46,6 +46,9 @@ export type Format = {
 export type AppConfig = {
   industries: Industry[];
   formats: Format[];
+  common?: {
+    fields?: ExtraField[];
+  };
 };
 
 // путь к файлу конфигурации
@@ -62,32 +65,3 @@ export async function writeConfig(cfg: AppConfig): Promise<void> {
   }
   await fs.writeFile(CONFIG_PATH, JSON.stringify(cfg, null, 2), "utf-8");
 }
-
-// config.ts или в API /config
-const textExtraFields: ExtraField[] = [
-  { id: "length", label: "Длина / объём", type: "text", hint: "Например: минимум 200 слов / максимум 5 абзацев" },
-  { id: "tone", label: "Стиль / тон", type: "list", items: [
-      { value: "формальный" }, { value: "дружелюбный" }, { value: "научный" },
-      { value: "популярный" }, { value: "юмористический" }
-    ], hint: "Выберите желаемый стиль текста"
-  },
-  { id: "structure", label: "Структура / формат", type: "list", items: [
-      { value: "эссе" }, { value: "список" }, { value: "обзор" }, 
-      { value: "аргумент" }, { value: "отзыв" }, { value: "инструкции" }
-    ], hint: "Например, «шаг за шагом»"
-  },
-  { id: "audience", label: "Целевая аудитория", type: "list", items: [
-      { value: "профессионалы" }, { value: "новички" }, { value: "дети" }, { value: "общий круг" }
-    ]
-  },
-  { id: "delivery", label: "Формат доставки", type: "list", items: [
-      { value: "тема + пункты" }, { value: "подзаголовки" }, { value: "маркированный список" }, { value: "прозаическое изложение" }
-    ]
-  },
-  { id: "language", label: "Язык", type: "list", items: [
-      { value: "русский" }, { value: "английский" }, { value: "другой" }
-    ]
-  },
-  { id: "keyPoints", label: "Ключевые точки / тезисы", type: "text", hint: "Что обязательно включить" },
-  { id: "exclude", label: "То, что не включать", type: "text", hint: "Шаблоны, технические термины, субъективное и т.п." }
-];
