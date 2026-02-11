@@ -1,4 +1,5 @@
-import { promises as fs } from "fs";
+import { execFileSync } from "child_process";
+import fs from "fs";
 import path from "path";
 
 export type PromptRecord = {
@@ -8,64 +9,78 @@ export type PromptRecord = {
   created_at: string;
 };
 
-type PromptStore = {
-  prompts: PromptRecord[];
-};
-
 const DATA_DIR = path.join(process.cwd(), "data");
-const STORE_PATH = path.join(DATA_DIR, "prompts.json");
+const DB_PATH = path.join(DATA_DIR, "db.sqlite");
 
-async function ensureStore(): Promise<void> {
-  await fs.mkdir(DATA_DIR, { recursive: true });
-  try {
-    await fs.access(STORE_PATH);
-  } catch {
-    const initial: PromptStore = { prompts: [] };
-    await fs.writeFile(STORE_PATH, JSON.stringify(initial, null, 2), "utf-8");
+function ensureDbFile(): void {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
   }
+
+  execFileSync("sqlite3", [DB_PATH, `
+    CREATE TABLE IF NOT EXISTS prompts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `]);
 }
 
-async function readStore(): Promise<PromptStore> {
-  await ensureStore();
-  const raw = await fs.readFile(STORE_PATH, "utf-8");
-  const parsed = JSON.parse(raw) as Partial<PromptStore>;
-  return {
-    prompts: Array.isArray(parsed.prompts) ? parsed.prompts : [],
-  };
+function runSql<T>(sql: string, args: string[] = []): T {
+  ensureDbFile();
+  const output = execFileSync("sqlite3", ["-json", DB_PATH, sql, ...args], {
+    encoding: "utf-8",
+  }).trim();
+
+  if (!output) {
+    return [] as T;
+  }
+
+  return JSON.parse(output) as T;
 }
 
-async function writeStore(store: PromptStore): Promise<void> {
-  await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2), "utf-8");
+function escape(value: string): string {
+  return value.replace(/'/g, "''");
 }
 
 export async function listPrompts(): Promise<PromptRecord[]> {
-  const store = await readStore();
-  return [...store.prompts].sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
+  const rows = runSql<PromptRecord[]>(
+    "SELECT id, title, content, created_at FROM prompts ORDER BY datetime(created_at) DESC, id DESC;"
+  );
+  return rows;
 }
 
 export async function getPromptById(id: number): Promise<PromptRecord | null> {
-  const store = await readStore();
-  return store.prompts.find((p) => p.id === id) ?? null;
+  const rows = runSql<PromptRecord[]>(
+    `SELECT id, title, content, created_at FROM prompts WHERE id = ${id} LIMIT 1;`
+  );
+  return rows[0] ?? null;
 }
 
 export async function createPrompt(title: string, content: string): Promise<PromptRecord> {
-  const store = await readStore();
-  const maxId = store.prompts.reduce((acc, item) => Math.max(acc, item.id), 0);
-  const next: PromptRecord = {
-    id: maxId + 1,
-    title,
-    content,
-    created_at: new Date().toISOString(),
-  };
-  store.prompts.push(next);
-  await writeStore(store);
-  return next;
+  const t = escape(title);
+  const c = escape(content);
+
+  runSql<unknown>(
+    `INSERT INTO prompts (title, content, created_at) VALUES ('${t}', '${c}', datetime('now'));`
+  );
+
+  const rows = runSql<PromptRecord[]>(
+    "SELECT id, title, content, created_at FROM prompts ORDER BY id DESC LIMIT 1;"
+  );
+
+  const created = rows[0];
+  if (!created) {
+    throw new Error("Failed to create prompt");
+  }
+  return created;
 }
 
 export async function deletePrompt(id: number): Promise<boolean> {
-  const store = await readStore();
-  const next = store.prompts.filter((p) => p.id !== id);
-  if (next.length === store.prompts.length) return false;
-  await writeStore({ prompts: next });
+  const existing = await getPromptById(id);
+  if (!existing) return false;
+
+  runSql<unknown>(`DELETE FROM prompts WHERE id = ${id};`);
   return true;
 }
