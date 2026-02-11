@@ -1,36 +1,115 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Prompt Builder PVP
 
-## Getting Started
+[![CI](https://github.com/<OWNER>/<REPO>/actions/workflows/ci.yml/badge.svg)](https://github.com/<OWNER>/<REPO>/actions/workflows/ci.yml)
 
-First, run the development server:
+Веб-приложение на Next.js для сборки «золотых промптов» через визуальный конструктор: пользователь выбирает роль, формат, индустрию, параметры и получает готовый структурированный prompt для LLM.
+
+## Vision и Mission
+
+- **Vision:** сделать качественные промпты повторяемыми и доступными для любой роли в команде, чтобы снизить зависимость от индивидуальной экспертизы.
+- **Mission:** дать быстрый и понятный конструктор, который помогает собрать рабочий промпт за минуты, сохранить удачные варианты и стандартизировать практики внутри команды.
+
+## Scope по User Story Map: MVP vs MUP
+
+### MVP (в текущем репозитории)
+
+- Конструктор промптов на главной странице.
+- Выбор формата и индустрии из API-конфигов.
+- Динамические поля (основные, дополнительные, подопции) для настройки prompt.
+- Генерация итогового текста prompt и копирование.
+- Локальное избранное для сохранения удачных prompt-вариантов.
+- Простая админ-страница для редактирования конфигурации.
+
+### MUP (следующий продуктовый этап)
+
+- Авторизация и командные workspace.
+- Хранение prompt-шаблонов и избранного в БД (вместо только localStorage).
+- Версионирование шаблонов и аудит изменений.
+- Интеграции с LLM API (в т.ч. прямой запуск prompt из UI).
+- Метрики качества prompt (оценка, сравнение, A/B).
+
+## Структура репозитория
+
+- `src/app/` — страницы и роутинг Next.js App Router.
+- `src/app/api/` — API endpoints (`config`, `formats`, `industries`).
+- `src/components/` — UI-компоненты и рендереры полей конструктора.
+- `src/hooks/` — клиентская логика состояния и генерации prompt.
+- `src/lib/` — типы, константы, утилиты и шаблоны prompt.
+- `src/data/` — JSON-конфигурации форматов/настроек.
+- `public/` — статические ассеты.
+- `.github/workflows/` — CI workflow.
+- `db/` *(планируется)* — миграции/инициализация БД.
+- `diagrams/` *(планируется)* — архитектурные схемы.
+- `scripts/` *(планируется)* — вспомогательные скрипты.
+
+## Быстрый старт
+
+### 1) Установка зависимостей
+
+```bash
+npm ci
+```
+
+### 2) Запуск локальной разработки
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Приложение доступно на `http://localhost:3000`.
+- API роуты доступны по префиксу `http://localhost:3000/api/*`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3) Инициализация БД (когда будет добавлена SQLite/Prisma)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+На текущем этапе MVP БД не используется. Для будущего этапа можно зарезервировать команды:
 
-## Learn More
+```bash
+npm run db:init
+# или
+npx prisma migrate dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 4) Основные команды
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run lint   # eslint
+npm run build  # production build
+npm start      # запуск production-сервера
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Переменные окружения
 
-## Deploy on Vercel
+На текущем MVP этапе **обязательных переменных окружения нет**.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Для MUP-этапа (интеграции с БД/LLM) рекомендуется заранее предусмотреть:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `OPENAI_API_KEY` — ключ API модели.
+- `DATABASE_URL` — строка подключения к БД.
+
+## Docker
+
+Сборка образа:
+
+```bash
+docker build -t prompt-builder .
+```
+
+Запуск контейнера:
+
+```bash
+docker run --rm -p 3000:3000 prompt-builder
+```
+
+После запуска приложение будет доступно на `http://localhost:3000`.
+
+## CI
+
+GitHub Actions workflow: `.github/workflows/ci.yml`.
+
+Pipeline выполняет:
+
+1. `npm ci`
+2. `npm run lint`
+3. `npm run build`
+
+Цель — гарантировать, что линтер и production-сборка остаются зелёными на каждом push/PR.

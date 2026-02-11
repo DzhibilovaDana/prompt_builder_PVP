@@ -46,6 +46,9 @@ export type Format = {
 export type AppConfig = {
   industries: Industry[];
   formats: Format[];
+  common?: {
+    fields?: ExtraField[];
+  };
 };
 
 // путь к файлу конфигурации

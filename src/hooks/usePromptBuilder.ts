@@ -228,7 +228,7 @@ const buildPrompt = useCallback((): string => {
   lines.push(buildFormatInstruction(format));
 
   // COMMON поля (goal/context/constraints/example) — из config.common.fields
-  const commons = config.common.fields ?? [];
+  const commons = config?.common?.fields ?? [];
   for (const f of commons) {
     const val = extraValues[f.id];
 
@@ -256,7 +256,7 @@ const buildPrompt = useCallback((): string => {
     if (f.type === "list") {
       // если есть item-подсказка — используем её
       const item = f.items?.find(i => i.value === val);
-      const t = item ? getPromptFromSelection(config!, "common", f.id, String(val)) : undefined;
+      const t = item && config ? getPromptFromSelection(config, "common", f.id, String(val)) : undefined;
       if (t) {
         lines.push(t);
       } else {
