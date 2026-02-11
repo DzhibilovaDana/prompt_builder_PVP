@@ -5,6 +5,10 @@ import type { NextAuthOptions } from "next-auth";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
+//тэги
+//может пулы полей
+//
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -26,21 +30,33 @@ export const authOptions: NextAuthOptions = {
         const ok = await bcrypt.compare(credentials.password, user.password);
         if (!ok) return null;
 
-        // Важно: вернуть объект пользователя
         return { id: user.id, email: user.email, name: user.name ?? null };
       },
     }),
   ],
-  session: { strategy: "database" },
+
+  // <-- ЗАМЕНА: используем JWT-стратегию (вместо database)
+  session: { strategy: "jwt" },
+
   callbacks: {
-    async session({ session, user }) {
-      // чтобы на клиенте можно было достать user.id
-      if (session.user) {
-        // @ts-expect-error
-        session.user.id = user.id;
+    // Поддерживаем JWT — когда user появляется (при входе), добавляем id в token
+    async jwt({ token, user }) {
+      if (user?.id) {
+        // https://next-auth.js.org/tutorials/refresh-token-rotation
+        token.sub = user.id;
+      }
+      return token;
+    },
+
+    // При создании session ставим user.id из token.sub (или token.id)
+    async session({ session, token }) {
+      if (session?.user) {
+        // @ts-expect-error - NextAuth typings иногда не знают про id в user
+        session.user.id = token.sub ?? (token as any).id ?? null;
       }
       return session;
     },
   },
+
   secret: process.env.NEXTAUTH_SECRET,
 };

@@ -1,7 +1,8 @@
-// app/api/register/route.ts
+// src/app/api/register/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import bcrypt from "bcrypt";
+// заменить bcrypt (нативный) на bcryptjs (чистый JS, используется и в auth.ts)
+import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
   try {
@@ -22,6 +23,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Пользователь с таким email уже существует" }, { status: 409 });
     }
 
+    // Используем bcryptjs.hash (возвращает Promise)
     const hashed = await bcrypt.hash(password, 12); // rounds = 12
 
     const user = await prisma.user.create({

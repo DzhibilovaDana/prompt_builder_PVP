@@ -1,7 +1,8 @@
-// src/app/api/auth/register/route.ts (Next.js App Router)
+// src/app/api/auth/register/route.ts
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { Prisma } from "@prisma/client";
 
 export async function POST(req: Request) {
   try {
@@ -32,6 +33,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ id: user.id, email: user.email, name: user.name });
   } catch (err) {
     console.error(err);
+    // явная обработка уникального ограничения
+    if ((err as any)?.code === "P2002" || (err as Prisma.PrismaClientKnownRequestError)?.code === "P2002") {
+      return NextResponse.json({ error: "Пользователь с таким email уже существует" }, { status: 409 });
+    }
     return NextResponse.json({ error: "Ошибка сервера" }, { status: 500 });
   }
 }

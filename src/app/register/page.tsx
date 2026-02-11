@@ -15,23 +15,22 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function onSubmit(e: React.FormEvent) {
+    async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    // минимальная валидация
     if (!email.trim() || !password.trim()) {
-      setError("Email и пароль обязательны");
-      return;
+        setError("Email и пароль обязательны");
+        return;
     }
-    if (password.length < 6) {
-      setError("Пароль должен быть минимум 6 символов");
-      return;
+    // Согласовано с сервером: минимум 8
+    if (password.length < 8) {
+        setError("Пароль должен быть минимум 8 символов");
+        return;
     }
 
     setLoading(true);
-    try {
-      // 1) регистрация
+        try {
             const res = await fetch("/api/auth/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -42,52 +41,34 @@ export default function RegisterPage() {
             }),
             });
 
-            // читаем ответ как текст, чтобы увидеть даже HTML-ошибки
-            const raw = await res.text();
-
-            // пробуем распарсить JSON
-            let payload: any = {};
-            try {
-            payload = raw ? JSON.parse(raw) : {};
-            } catch {
-            payload = {};
-            }
+            // пытаемся получить JSON-ответ
+            const payload = await res.json().catch(() => ({}));
 
             if (!res.ok) {
-            setError(payload?.error || raw || `Ошибка регистрации (HTTP ${res.status})`);
+            setError(payload?.error || `Ошибка регистрации (HTTP ${res.status})`);
             return;
             }
 
-// дальше твой успешный сценарий (автологин/редирект)
+            // автологин
+            const loginRes = await signIn("credentials", {
+            redirect: false,
+            email: email.trim(),
+            password,
+            });
 
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setError(data?.error || "Ошибка регистрации");
-        return;
-      }
-
-      // 2) автологин (не обязательно, но удобно)
-      const loginRes = await signIn("credentials", {
-        redirect: false,
-        email: email.trim(),
-        password,
-      });
-
-      if (loginRes?.ok) {
-        router.push("/");
-        router.refresh();
-      } else {
-        // если автологин не прошёл — отправим на логин
-        router.push("/login");
-      }
-    } catch (err) {
-      setError("Ошибка сети/сервера");
-    } finally {
-      setLoading(false);
-    }
-  }
+            if (loginRes?.ok) {
+            router.push("/");
+            router.refresh();
+            } else {
+            router.push("/login");
+            }
+        } catch (err) {
+            console.error(err);
+            setError("Ошибка сети/сервера");
+        } finally {
+            setLoading(false);
+        }
+        }
 
   return (
     <main style={{ maxWidth: 420, margin: "40px auto", padding: 16 }}>
