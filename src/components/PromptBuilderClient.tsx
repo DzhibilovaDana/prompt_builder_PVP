@@ -28,7 +28,7 @@ interface Props {
 }
 
 export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
-  const {
+    const {
     industry,
     setIndustry,
     experts,
@@ -56,10 +56,15 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
     outputFormats,
     buildPrompt,
     handleCopy,
+    // new exports
+    expertWeights,
+    setExpertWeight,
     // handleGenerate, // we will call buildPrompt + API from here
   } = usePromptBuilder(config);
 
-  const { favorites, addFavorite, removeFavorite } = useFavorites();
+
+    const { favorites, addFavorite, removeFavorite, serverAvailable } = useFavorites();
+
 
   // Provider selection state (defaults)
   const providersList: ProviderInfo[] = [
@@ -94,6 +99,59 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
     setRefine("");
     setCopied(false);
   };
+
+    const handleShareFavorite = async (fav: { id: string; title: string; prompt: string }) => {
+    try {
+      // If already on server (numeric id) - copy
+      if (/^\d+$/.test(String(fav.id))) {
+        const url = `${location.origin}/api/prompts/${encodeURIComponent(fav.id)}`;
+        try {
+          await navigator.clipboard.writeText(url);
+          alert("Ссылка скопирована в буфер обмена:\n" + url);
+        } catch {
+          // fallback text if clipboard fails
+          alert("Не удалось скопировать ссылку. Вот ссылка:\n" + url);
+        }
+        return;
+      }
+
+      // Not on server: attempt to save via addFavorite (it will try server if possible)
+      const created = await addFavorite(fav.prompt, fav.title);
+
+      if (!created) {
+        alert("Не удалось создать промпт на сервере. Промпт остался локальным.");
+        return;
+      }
+
+      // If created has server-like id -> share it and remove old local entry
+      if (/^\d+$/.test(String(created.id))) {
+        // remove old local (if exists)
+        if (fav.id && !/^\d+$/.test(String(fav.id))) {
+          // best-effort remove local copy
+          try {
+            await removeFavorite(fav.id);
+          } catch {
+            // ignore
+          }
+        }
+
+        const url = `${location.origin}/api/prompts/${encodeURIComponent(created.id)}`;
+        try {
+          await navigator.clipboard.writeText(url);
+          alert("Промпт сохранён на сервере. Ссылка скопирована в буфер обмена:\n" + url);
+        } catch {
+          alert("Промпт сохранён на сервере. Вот ссылка:\n" + url);
+        }
+        return;
+      }
+
+      // created exists but is still local -> server unavailable
+      alert("Промпт остался локальным (сервер недоступен). Попробуйте ещё раз, когда сервер будет доступен.");
+    } catch (err) {
+      alert("Ошибка при подготовке ссылки: " + (err as any)?.message ?? String(err));
+    }
+  };
+
 
   // Generate and copy (local)
   const onGenerate = () => {
@@ -175,15 +233,17 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
             />
 
             <IndustryExpertSelector
-              industries={config.industries}
-              industry={industry}
-              onIndustryChange={setIndustry}
-              experts={experts}
-              onExpertsChange={setExperts}
-              currentIndustryExperts={currentIndustryExperts}
-              show={["text", "table", "presentation", "code", "calculator"].includes(format)}
-
+                industries={config.industries}
+                industry={industry}
+                onIndustryChange={setIndustry}
+                experts={experts}
+                onExpertsChange={setExperts}
+                currentIndustryExperts={currentIndustryExperts}
+                show={["text", "table", "presentation", "code", "calculator"].includes(format)}
+                expertWeights={expertWeights}
+                onExpertWeightChange={setExpertWeight}
             />
+
 
             
 
@@ -259,7 +319,8 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
             onUseFavorite={handleUseFavorite}
             onDeleteFavorite={removeFavorite}
             onImportFavorites={onImportFavorites}
-          />
+            onShareFavorite={handleShareFavorite}
+        />
         </section>
 
         {/* pass provider selection props to Sidebar */}

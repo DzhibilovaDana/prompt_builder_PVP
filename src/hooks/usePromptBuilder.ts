@@ -158,24 +158,23 @@ export const usePromptBuilder = (config: AppConfig | null) => {
     });
   }, [persistExpertWeights]);
 
-  // when adding/removing experts we should ensure default weight = 100 for new ones
+   // when adding/removing experts we should ensure default weight = 100 for new ones
   const setExperts = useCallback((nextExperts: string[]) => {
-    setExpertsState((prev) => {
+    setExpertsState(() => {
       // ensure each new expert has weight default 100
-      const toAdd = nextExperts.filter((n) => !(n in expertWeights));
-      if (toAdd.length > 0) {
-        setExpertWeightsState((prevW) => {
-          const nextW = { ...prevW };
-          for (const a of toAdd) {
-            if (!(a in nextW)) nextW[a] = 100;
-          }
-          persistExpertWeights(nextW);
-          return nextW;
-        });
-      }
+      // Use setExpertWeightsState(prevW => ...) so we operate on latest weights
+      setExpertWeightsState((prevW) => {
+        const nextW = { ...prevW };
+        for (const a of nextExperts) {
+          if (!(a in nextW)) nextW[a] = 100;
+        }
+        persistExpertWeights(nextW);
+        return nextW;
+      });
       return nextExperts;
     });
-  }, [expertWeights, persistExpertWeights]);
+  }, [persistExpertWeights]);
+
 
   // add/remove exclusion helpers
   const addExclusion = useCallback(() => {
@@ -190,6 +189,7 @@ export const usePromptBuilder = (config: AppConfig | null) => {
   }, []);
 
   // BUILD ROLE PROMPT — respect weights: sort by weight desc, replace {{expert}} and {{weight}}
+    // BUILD ROLE PROMPT — respect weights: sort by weight desc, replace {{expert}} and {{weight}}
   const buildRolePrompt = useCallback((): string => {
     if (!config) return "Действуй как опытный специалист, способный решить поставленную задачу.";
 
@@ -209,34 +209,74 @@ export const usePromptBuilder = (config: AppConfig | null) => {
 
     const expertFragments = selectedExpertObjs.map((e) => {
       const weight = expertWeights[e.name] ?? 100;
+      const pct = `${weight}%`;
+
       if (e.promptTemplate) {
-        // support both {{expert}} and optional {{weight}}
-        let tpl = e.promptTemplate.replace(/\{\{\s*expert\s*\}\}/g, e.name);
-        tpl = tpl.replace(/\{\{\s*weight\s*\}\}/g, `${weight}%`);
+        // Replace placeholders (global)
+        let tpl = String(e.promptTemplate);
+        const hadWeightPlaceholder = /\{\{\s*weight\s*\}\}/i.test(tpl);
+        tpl = tpl.replace(/\{\{\s*expert\s*\}\}/g, e.name);
+        tpl = tpl.replace(/\{\{\s*weight\s*\}\}/g, pct);
+        tpl = tpl.trim();
+
+        // If the template did not include {{weight}} and weight != 100, append a concise weight marker
+        if (!hadWeightPlaceholder && weight !== 100) {
+          // append in a consistent, prompt-engineering friendly way
+          // keep template punctuation: if it ends with '.' remove it before appending
+          tpl = tpl.replace(/\.$/, "");
+          tpl = `${tpl} (вес: ${pct})`;
+        }
+
         return tpl;
       }
-      return `${e.name}${weight !== 100 ? ` (${weight}%)` : ""}`;
+
+      // No template: return "Name (вес: X%)" only if weight differs from default
+      return `${e.name}${weight !== 100 ? ` (вес: ${pct})` : ""}`;
     });
 
+    // If we have industry and experts, prefer industry's promptTemplate if present
     if (industry && expertFragments.length > 0) {
       if (ind?.promptTemplate) {
-        return ind.promptTemplate
-          .replace("{{experts}}", expertFragments.join(", "))
-          .replace("{{industry}}", industry);
+        // Replace placeholders globally and add instruction about weights
+        const base = String(ind.promptTemplate)
+          .replace(/\{\{\s*experts\s*\}\}/g, expertFragments.join(", "))
+          .replace(/\{\{\s*industry\s*\}\}/g, industry)
+          .trim();
+
+        // Add short guidance on weight interpretation for the model
+        const weightGuidance = expertFragments.some(f => /\(вес: \d+%?\)/.test(f) || /\d+%/.test(f))
+          ? " Учитывай указанные рядом проценты как относительную значимость мнений экспертов при формировании ответа."
+          : " Учитывай относительную значимость экспертов при формировании ответа.";
+
+        // Ensure base ends without redundant punctuation before appending guidance
+        const baseClean = base.replace(/\s+$/, "");
+        return (baseClean + (baseClean.endsWith(".") ? "" : ".") + weightGuidance).trim();
       }
-      return `Действуй как эксперт ${expertFragments.join(", ")} в индустрии ${industry}.`;
+
+      // No industry template — build a concise instruction
+      const expertsList = expertFragments.join(", ");
+      const role = `Действуй как команда экспертов: ${expertsList}.`;
+      const guidance = "Учитывай указанные веса (проценты) как относительную важность вклада каждого эксперта при формировании ответа.";
+      return `${role} ${guidance}`;
     }
 
+    // If only industry chosen without specific experts
     if (industry) {
-      return `Действуй как специалист с глубоким пониманием индустрии ${industry}. Используй отраслевые знания и best practices.`;
+      return `Действуй как специалист с глубоким пониманием индустрии ${industry}. Используй отраслевые знания и проверенные практики.`;
     }
 
+    // If no industry but some experts (should be covered above), else fallback
     if (expertFragments.length > 0) {
-      return `Действуй как ${expertFragments.join(", ")}. Применяй профессиональный подход и экспертные знания.`;
+      const expertsList = expertFragments.join(", ");
+      const role = `Действуй как ${expertsList}.`;
+      const guidance = "Применяй профессиональный подход, учитывая относительную важность мнений (веса) экспертов.";
+      return `${role} ${guidance}`;
     }
 
+    // Default fallback
     return "Действуй как опытный профессионал, способный качественно решить поставленную задачу. Используй системный подход и проверенные методики.";
   }, [config, industry, experts, expertWeights]);
+
 
   // buildFormatInstruction and buildPrompt re-use previous logic (with SELECT_PLACEHOLDER)
   const buildFormatInstruction = useCallback((fmtId: string): string => {

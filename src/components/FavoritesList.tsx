@@ -8,6 +8,8 @@ interface FavoritesListProps {
   onDeleteFavorite: (id: string) => void;
   // import handler: accepts array of parsed prompts {title,prompt}
   onImportFavorites?: (items: { title: string; prompt: string }[]) => Promise<void> | void;
+  // new: share handler (parent должен обеспечивать сохранение на сервер и копирование ссылки)
+  onShareFavorite?: (fav: FavoritePrompt) => Promise<void> | void;
 }
 
 function downloadFile(filename: string, content: string, mimeType = "application/json;charset=utf-8") {
@@ -34,6 +36,7 @@ export const FavoritesList: React.FC<FavoritesListProps> = ({
   onUseFavorite,
   onDeleteFavorite,
   onImportFavorites,
+  onShareFavorite,
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -88,13 +91,24 @@ export const FavoritesList: React.FC<FavoritesListProps> = ({
     }
   };
 
-  const handleShare = async (id: string) => {
+  const handleShare = async (fav: FavoritePrompt) => {
+    // If parent provided a handler — delegate to it (recommended)
+    if (onShareFavorite) {
+      try {
+        await onShareFavorite(fav);
+      } catch (err) {
+        alert("Ошибка при попытке поделиться промптом: " + (err as any)?.message ?? String(err));
+      }
+      return;
+    }
+
+    // Fallback: try to copy server URL (best-effort)
     try {
-      const url = `${location.origin}/api/prompts/${encodeURIComponent(id)}`;
+      const url = `${location.origin}/api/prompts/${encodeURIComponent(fav.id)}`;
       await navigator.clipboard.writeText(url);
       alert("Ссылка скопирована в буфер обмена:\n" + url);
     } catch {
-      alert("Не удалось скопировать ссылку. Вот ссылка:\n" + `${location.origin}/api/prompts/${encodeURIComponent(id)}`);
+      alert("Не удалось скопировать ссылку. Вот ссылка:\n" + `${location.origin}/api/prompts/${encodeURIComponent(fav.id)}`);
     }
   };
 
@@ -164,7 +178,7 @@ export const FavoritesList: React.FC<FavoritesListProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleShare(fav.id)}
+                  onClick={() => handleShare(fav)}
                   className="rounded-lg border px-2 py-1 text-xs hover:bg-gray-50"
                 >
                   Поделиться
