@@ -1,201 +1,32 @@
-// app/page.tsx
-"use client";
-
-import React, { useEffect, useState } from "react";
-import { usePromptBuilder } from "@/hooks/usePromptBuilder";
-import { useFavorites } from "@/hooks/useFavorites";  
-import { FavoritesList } from "@/components/FavoritesList"; 
-import { Header } from "@/components/Header";
-import { FormatSelector } from "@/components/FormatSelector";
-import { IndustryExpertSelector } from "@/components/IndustryExpertSelector";
-import { SubOptionsRenderer } from "@/components/SubOptionsRenderer";
-import { ExtraFieldsRenderer } from "@/components/ExtraFieldsRenderer";
-import { StaffingFieldsRenderer } from "@/components/StaffingFieldsRenderer";
-import { CommonFieldsRenderer } from "@/components/CommonFieldsRenderer";
-import { ExclusionsRenderer } from "@/components/ExclusionsRenderer";
-import { UserTaskRenderer } from "@/components/UserTaskRenderer";
-import { ActionButtons } from "@/components/ActionButtons";
-import { PromptResult } from "@/components/PromptResult";
-import { Sidebar } from "@/components/Sidebar";
-import { Footer } from "@/components/Footer";
+// src/app/page.tsx
+import React from "react";
 import type { AppConfig } from "@/lib/config";
-import { exportPromptAsMarkdown, exportPromptAsHtml } from "@/lib/exportPrompt";
-/* почитать как корректно разместить это на гите
-сборка на гит почитать
-разделение данных и кода
-формат презентации
-множественный выбор в ограничениях*/
+import { readConfig } from "@/lib/config";
+import PromptBuilderClient from "@/components/PromptBuilderClient";
 
-export default function PromptBuilderPrototype() {
-  const [config, setConfig] = useState<AppConfig | null>(null);
-  const [loadingCfg, setLoadingCfg] = useState(true);
+export const dynamic = "force-dynamic"; // при необходимости, чтобы всегда читалось актуальное
 
-  const {
-    industry,
-    setIndustry,
-    experts,
-    setExperts,
-    userTask,
-    setUserTask,
-    format,
-    setFormat,
-    subOption,
-    setSubOption,
-    exclusionInput,
-    setExclusionInput,
-    exclusions,
-    addExclusion,
-    removeExclusion,
-    generatedPrompt,
-    setGeneratedPrompt,
-    refine,
-    setRefine,
-    copied,
-    setCopied,
-    extraValues,
-    setExtraValue,
-    currentIndustryExperts,
-    outputFormats,
-    buildPrompt,
-    handleCopy,
-    handleGenerate,
-  } = usePromptBuilder(config);
+export default async function Page() {
+  try {
+    // читаем конфиг на сервере (readConfig читает src/data/config.json)
+    const cfg: AppConfig = await readConfig();
 
-  const { favorites, addFavorite, removeFavorite } = useFavorites();
-
-  useEffect(() => {
-    (async () => {
-      const res = await fetch("/api/config", { cache: "no-store" });
-      const data = await res.json();
-      setConfig(data);
-      setLoadingCfg(false);
-    })();
-  }, []);
-
-  if (loadingCfg) return <div className="p-6 text-sm text-gray-600">Загрузка конфигурации…</div>;
-  if (!config) return <div className="p-6 text-sm text-red-600">Не удалось загрузить конфигурацию.</div>;
-
-  // 🔽 Хендлеры экспорта
-  const handleExportMarkdown = () => {
-    if (!generatedPrompt) return;
-    exportPromptAsMarkdown(generatedPrompt);
-  };
-
-  const handleExportHtml = () => {
-    if (!generatedPrompt) return;
-    exportPromptAsHtml(generatedPrompt);
-  };
-
-  const handleAddFavorite = () => {
-    if (!generatedPrompt) return;
-
-    const title =
-      typeof userTask === "string" && userTask.trim().length > 0
-        ? userTask.trim()
-        : "Промпт без названия";
-
-    addFavorite(generatedPrompt, title);
-  };
-
-  const handleUseFavorite = (prompt: string) => {
-    setGeneratedPrompt(prompt);
-    setRefine("");
-    setCopied(false);
-  };
-
-  return (
-    <div className="min-h-screen w-full bg-gray-50 text-gray-900">
-      <Header />
-      
-      <main className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 py-6 md:grid-cols-3">
-        <section className="md:col-span-2">
-          <div className="rounded-2xl border bg-white p-5 shadow-sm">
-            <h2 className="mb-4 text-xl font-semibold">Конструктор промпта</h2>
-
-            <FormatSelector
-              formats={config.formats}
-              selectedFormat={format}
-              onFormatChange={setFormat}
-            />
-
-            <IndustryExpertSelector
-              industries={config.industries}
-              industry={industry}
-              onIndustryChange={setIndustry}
-              experts={experts}
-              onExpertsChange={setExperts}
-              currentIndustryExperts={currentIndustryExperts}
-              show={["text", "table", "presentation", "code", "calculator"].includes(format)}
-            />
-
-            <SubOptionsRenderer
-              format={format}
-              formats={outputFormats}
-              subOption={subOption}
-              onSubOptionChange={setSubOption}
-            />
-
-            <ExtraFieldsRenderer
-              format={format}
-              formats={outputFormats}
-              values={extraValues}
-              onValueChange={setExtraValue}
-            />
-
-            <StaffingFieldsRenderer
-              format={format}
-              subOption={subOption}
-              formats={outputFormats}
-              values={extraValues}
-              onValueChange={setExtraValue}
-            />
-
-            <CommonFieldsRenderer
-              values={extraValues}
-              onValueChange={setExtraValue}
-              show={["text", "table", "presentation", "code", "calculator"].includes(format)}
-            />
-
-            <ExclusionsRenderer
-              exclusionInput={exclusionInput}
-              onExclusionInputChange={setExclusionInput}
-              exclusions={exclusions}
-              onAddExclusion={addExclusion}
-              onRemoveExclusion={removeExclusion}
-              show={["text", "table", "presentation"].includes(format)}
-            />
-
-            <UserTaskRenderer
-              userTask={userTask}
-              onUserTaskChange={setUserTask}
-            />
-
-            <ActionButtons onGenerate={handleGenerate} />
-          </div>
-
-          <PromptResult
-            generatedPrompt={generatedPrompt}
-            copied={copied}
-            onCopy={() => handleCopy()}
-            refine={refine}
-            onRefineChange={setRefine}
-            onRefineApply={() => setGeneratedPrompt(buildPrompt())}
-            onExportMarkdown={handleExportMarkdown}
-            onExportHtml={handleExportHtml}
-            onAddFavorite={handleAddFavorite}        // 🔹 НОВОЕ
-          />
-
-          <FavoritesList
-            favorites={favorites}
-            onUseFavorite={handleUseFavorite}
-            onDeleteFavorite={removeFavorite}
-          />
-        </section>
-
-        <Sidebar />
-      </main>
-
-      <Footer />
-    </div>
-  );
+    // Передаём конфиг в клиентский компонент
+    return <PromptBuilderClient config={cfg} />;
+  } catch (err: unknown) {
+    // Если чтение конфига упало — показываем понятное сообщение
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return (
+      <div className="p-6">
+        <div className="rounded-md border bg-white p-6 text-sm text-red-600 shadow-sm">
+          <h3 className="mb-2 text-lg font-semibold">Ошибка загрузки конфигурации</h3>
+          <p>Не удалось загрузить конфигурацию приложения:</p>
+          <pre className="mt-3 rounded bg-gray-50 p-3 text-xs text-red-700">{String(message)}</pre>
+          <p className="mt-3 text-xs text-gray-600">
+            Проверьте, пожалуйста, файл <code>src/data/config.json</code> или логи сервера.
+          </p>
+        </div>
+      </div>
+    );
+  }
 }
