@@ -1,8 +1,7 @@
 # Prompt Builder PVP
 
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+> [![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
 
-> ⚠️ Замените `OWNER/REPO` на фактический путь вашего GitHub-репозитория, чтобы badge стал рабочим.
 
 Веб-приложение на Next.js для сборки «золотых промптов» через визуальный конструктор: пользователь выбирает роль, формат, индустрию, параметры и получает готовый структурированный prompt для LLM.
 
@@ -21,6 +20,7 @@
 - Генерация итогового текста prompt и копирование.
 - Локальное избранное для сохранения удачных prompt-вариантов.
 - Простая админ-страница для редактирования конфигурации.
+- Хранение prompt-шаблонов и избранного
 
 ### MUP (следующий продуктовый этап)
 
@@ -177,3 +177,68 @@ Pipeline выполняет:
 3. `npm run build`
 
 Цель — гарантировать, что линтер и production-сборка остаются зелёными на каждом push/PR.
+
+## Изменения, внесенные для MVP
+### UI / Frontend
+#### 1) Избранное (Favorites)
+**Что сделано:** офлайн-режим + синхронизация с сервером + нормализация id.  
+**Где:**
+- `src/hooks/useFavorites.ts` — основная логика:
+  - загрузка с `/api/prompts`, fallback на `localStorage`;
+  - автосинк локальных промптов на сервер при восстановлении связи;
+  - удаление на сервере только для серверных id.
+
+#### 2) Веса экспертов
+**Что сделано:** веса сохраняются и корректно попадают в итоговый промпт (с краткой инструкцией для LLM).  
+**Где:**
+- `src/hooks/usePromptBuilder.ts`
+  - добавлены `expertWeights`, `setExpertWeight`;
+  - обновлены `setExperts`, `buildRolePrompt` (подстановка `{{weight}}`, сортировка по весу, аккуратная формулировка роли).
+
+#### 3) Поделиться (Share)
+**Что сделано:** кнопка «Поделиться» всегда даёт валидную ссылку:
+- если промпт локальный → сначала сохраняется на сервер → потом копируется ссылка;
+- если серверный → сразу копируется ссылка.  
+**Где:**
+- `src/components/FavoritesList.tsx` — добавлена пропса `onShareFavorite`.
+- `src/components/PromptBuilderClient.tsx` — реализован `handleShareFavorite`.
+
+#### 4) Регистрация / Авторизация
+**Что сделано:** добавлены пользователи и сессии (cookie `pb_session`), привязка промптов к пользователю.  
+**Где:**
+- `src/lib/userStore.ts` — логика пользователей/сессий (scrypt + salt).
+- API:
+  - `src/app/api/auth/register/route.ts`
+  - `src/app/api/auth/login/route.ts`
+  - `src/app/api/auth/logout/route.ts`
+  - `src/app/api/auth/me/route.ts`
+- UI:
+  - `src/app/auth/register/page.tsx`
+  - `src/app/auth/login/page.tsx`
+
+#### 5) Промпты на сервере + привязка к user
+**Что сделано:** `GET /api/prompts` возвращает промпты текущего пользователя, `POST` сохраняет с `user_id`.  
+**Где:**
+- `src/lib/promptStore.ts` — таблицы `users`, `sessions`, поле `user_id` у `prompts`.
+- `src/app/api/prompts/route.ts` — учёт user при `GET/POST`.
+- `src/app/api/prompts/[id]/route.ts` — проверка прав при удалении приватных промптов.
+
+#### 6) Header: переходы к регистрации/входу
+**Что сделано:** на главной появляются ссылки **Войти** / **Регистрация** или имя + **Выйти**.  
+**Где:**
+- `src/components/Header.tsx` — клиентский, запрашивает `/api/auth/me`, logout через `/api/auth/logout`.
+.
+
+### API / Backend / CI
+- `src/app/api/generate/route.ts`  
+  — POST `/api/generate`: поддержка `providers: []` (мульти-провайдерный режим) и старого `model`-flow; режим деградации.
+
+- `src/lib/inference.ts`  
+  — mock-адаптеры провайдеров (openai/claude/local) для демонстрации.
+
+- `src/app/api/prompts/route.ts` и `src/app/api/prompts/[id]/route.ts`  
+  — GET/POST/DELETE для избранного; API возвращает объекты в форме `{ id, title, prompt, createdAt }`.
+
+### Прочее
+- `src/app/page.tsx` — теперь server component: `readConfig()` на сервере и передача `config` в `PromptBuilderClient`.
+- Мелкие исправления доступности, disabled-атрибутов, keyboard-ux.
