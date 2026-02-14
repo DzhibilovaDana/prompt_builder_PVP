@@ -1,4 +1,4 @@
-// components/IndustryExpertSelector.tsx
+// src/components/IndustryExpertSelector.tsx
 import React from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ interface IndustryExpertSelectorProps {
   onExpertsChange: (experts: string[]) => void;
   currentIndustryExperts: string[];
   show: boolean;
+  expertWeights?: Record<string, number>;
+  onExpertWeightChange?: (expert: string, weight: number) => void;
 }
 
 export const IndustryExpertSelector: React.FC<IndustryExpertSelectorProps> = ({
@@ -24,8 +26,19 @@ export const IndustryExpertSelector: React.FC<IndustryExpertSelectorProps> = ({
   onExpertsChange,
   currentIndustryExperts,
   show,
+  expertWeights = {},
+  onExpertWeightChange,
 }) => {
   if (!show) return null;
+
+  const toggleExpert = (ex: string, checked: boolean) => {
+    if (checked) {
+      // add
+      if (!experts.includes(ex)) onExpertsChange([...experts, ex]);
+    } else {
+      onExpertsChange(experts.filter((e) => e !== ex));
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-4">
@@ -63,24 +76,43 @@ export const IndustryExpertSelector: React.FC<IndustryExpertSelectorProps> = ({
               <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[260px] rounded-xl border bg-white shadow-md">
-            <div className="flex flex-col gap-2">
+          <PopoverContent className="w-[320px] rounded-xl border bg-white shadow-md">
+            <div className="flex flex-col gap-3">
               {currentIndustryExperts.map((ex) => {
                 const checked = experts.includes(ex);
+                const weight = expertWeights[ex] ?? 100;
                 return (
-                  <label key={ex} className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(val) => {
-                        if (val) {
-                          onExpertsChange([...experts, ex]);
-                        } else {
-                          onExpertsChange(experts.filter((e) => e !== ex));
-                        }
-                      }}
-                    />
-                    <span>{ex}</span>
-                  </label>
+                  <div key={ex} className="flex flex-col gap-1 px-2 py-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(val) => {
+                          toggleExpert(ex, !!val);
+                        }}
+                      />
+                      <span className="flex-1">{ex}</span>
+                      <span className="text-xs text-gray-500">{weight}%</span>
+                    </label>
+
+                    {/* Slider visible only when checked */}
+                    {checked && (
+                      <div className="ml-7 mr-2">
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          value={weight}
+                          onChange={(e) => {
+                            const v = Number(e.target.value);
+                            if (onExpertWeightChange) onExpertWeightChange(ex, v);
+                          }}
+                          className="w-full"
+                          aria-label={`Вес эксперта ${ex}`}
+                        />
+                        <div className="mt-1 text-xs text-gray-500">Вес: {weight}% — влияет на порядок и влияние в промпте</div>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>

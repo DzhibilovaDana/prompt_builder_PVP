@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import OnboardingProvider from "@/components/OnboardingProvider";
 
 export const metadata: Metadata = {
   title: "Prompt Builder PVP",
@@ -13,7 +14,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru">
-      <body className="antialiased">{children}</body>
+      <body>
+        <OnboardingProvider>
+          {children}
+        </OnboardingProvider>
+      </body>
     </html>
   );
 }
