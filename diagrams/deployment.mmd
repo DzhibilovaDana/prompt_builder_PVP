@@ -1,15 +1,25 @@
-%% Deployment Diagram
+%% Deployment Diagram (infrastructure view)
 flowchart LR
-  U[Пользовательский браузер] -->|HTTPS| APP[Next.js приложение\n(Node.js runtime)]
-  APP -->|read/write| CFG[(src/data/config.json)]
-  APP -. planned .-> DB[(SQLite/PostgreSQL)]
-  APP -. planned HTTPS API .-> LLM[OpenAI/LLM Provider]
-
-  subgraph CI[GitHub Actions]
-    C1[checkout]
-    C2[setup-node 20]
-    C3[npm ci]
-    C4[npm run lint]
-    C5[npm run build]
-    C1-->C2-->C3-->C4-->C5
+  subgraph CLIENTS[Клиенты]
+    BA[Browser (Author)]
+    BM[Browser (Admin)]
   end
+
+  subgraph CLOUD[Сервер (облако)]
+    subgraph APP[Web/API Server (Next.js)]
+      APPART[artifact: promptbuilder-nextjs]
+    end
+
+    subgraph DB[DB Server]
+      CFGDB[(artifact: config-db\nSQLite MVP / Postgres MUP)]
+    end
+  end
+
+  OBJ[Object Storage (planned)\nS3 / MinIO]
+  LLM[LLM Provider (planned)\nOpenAI / др.]
+
+  BA -->|HTTPS| APPART
+  BM -->|HTTPS| APPART
+  APPART -->|SQL| CFGDB
+  APPART -. planned .->|S3 API| OBJ
+  APPART -. planned .->|HTTPS API| LLM
