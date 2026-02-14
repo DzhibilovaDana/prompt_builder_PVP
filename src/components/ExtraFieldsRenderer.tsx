@@ -6,8 +6,8 @@ import { SELECT_PLACEHOLDER } from "@/lib/constants";
 interface ExtraFieldsRendererProps {
   format: string;
   formats: Format[];
-  values: Record<string, any>;
-  onValueChange: (fieldId: string, value: any) => void;
+  values: Record<string, unknown>;
+  onValueChange: (fieldId: string, value: string | boolean) => void;
 }
 
 export const ExtraFieldsRenderer: React.FC<ExtraFieldsRendererProps> = ({
@@ -23,13 +23,14 @@ export const ExtraFieldsRenderer: React.FC<ExtraFieldsRendererProps> = ({
   return (
     <>
       {fields.map(field => {
-        const value = values[field.id] ?? "";
+        const rawValue = values[field.id];
+        const value = typeof rawValue === "string" || typeof rawValue === "boolean" ? rawValue : "";
         return (
           <div key={field.id} className="mt-4">
             <label className="mb-1 block text-sm font-medium">{field.label}</label>
             {field.type === "list" ? (
               <select
-                value={value || SELECT_PLACEHOLDER}
+                value={typeof value === "string" && value ? value : SELECT_PLACEHOLDER}
                 onChange={(e) => onValueChange(field.id, e.target.value)}
                 className="w-full rounded-xl border px-3 py-2"
               >
@@ -41,16 +42,16 @@ export const ExtraFieldsRenderer: React.FC<ExtraFieldsRendererProps> = ({
             ) : field.type === "boolean" ? (
               <input
                 type="checkbox"
-                checked={!!value}
+                checked={value === true}
                 onChange={(e) => onValueChange(field.id, e.target.checked)}
                 className="rounded"
                 />
             ) : (
               <input
                 type="text"
-                value={value}
+                value={typeof value === "string" ? value : ""}
                 onChange={(e) => onValueChange(field.id, e.target.value)}
-                placeholder={(field as any).hint || ""}
+                placeholder={field.hint || ""}
                 className="w-full rounded-xl border px-3 py-2"
                 />
             )}

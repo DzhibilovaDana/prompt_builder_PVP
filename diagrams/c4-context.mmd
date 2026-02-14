@@ -1,0 +1,12 @@
+%% C4 Level 1 (Context)
+C4Context
+    title Prompt Builder PVP - C4 L1 Context Diagram
+
+    Person(user, "Пользователь", "Собирает и копирует качественные промпты")
+    Person(admin, "Администратор", "Настраивает конфигурацию форматов и полей")
+    System(promptBuilder, "Prompt Builder PVP", "Веб-приложение для создания структурированных LLM-промптов")
+    System_Ext(llm, "LLM provider (planned)", "OpenAI/другие провайдеры для MUP")
+
+    Rel(user, promptBuilder, "Создаёт промпт через UI", "HTTPS")
+    Rel(admin, promptBuilder, "Управляет конфигом", "HTTPS")
+    Rel(promptBuilder, llm, "Отправка промпта (MUP)", "HTTPS API")

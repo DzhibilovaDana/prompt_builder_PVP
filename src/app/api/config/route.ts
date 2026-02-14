@@ -8,8 +8,9 @@ export async function GET() {
   try {
     const cfg = await readConfig();
     return NextResponse.json(cfg);
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Read error" }, { status: 500 });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Read error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -19,7 +20,8 @@ export async function PUT(req: Request) {
     // Можно добавить простую проверку структуры, но writeConfig уже проверяет список
     await writeConfig(body);
     return NextResponse.json({ ok: true });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Write error" }, { status: 400 });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Write error";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

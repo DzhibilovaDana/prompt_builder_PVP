@@ -175,8 +175,8 @@ export default function ConfigEditor() {
       if (!res.ok) throw new Error(data?.error || "Save failed");
       setSuccess(true);
       setTimeout(() => setSuccess(false), 1500);
-    } catch (e: any) {
-      setError(e?.message || "Ошибка сохранения");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Ошибка сохранения");
     } finally {
       setSaving(false);
     }
@@ -199,7 +199,7 @@ export default function ConfigEditor() {
         </div>
 
         <div className="flex flex-wrap gap-3 mb-4">
-          {cfg.formats.map((f, i) => (
+          {cfg.formats.map((f) => (
             <button
               key={f.id}
               onClick={() => setActiveFormatId(f.id)}
@@ -272,7 +272,7 @@ export default function ConfigEditor() {
                     <div className="flex gap-2 items-center mb-2">
                       <input value={fld.label} onChange={(e) => updateExtraFieldDef(activeFormatIdx, fi, { label: e.target.value })} className="rounded-xl border px-2 py-1 flex-1" />
                       <input value={fld.id} onChange={(e) => updateExtraFieldDef(activeFormatIdx, fi, { id: e.target.value })} className="rounded-xl border px-2 py-1 w-48" />
-                      <select value={fld.type} onChange={(e) => updateExtraFieldDef(activeFormatIdx, fi, { type: e.target.value as any })} className="rounded-xl border px-2 py-1 w-40">
+                      <select value={fld.type} onChange={(e) => updateExtraFieldDef(activeFormatIdx, fi, { type: e.target.value as ExtraField["type"] })} className="rounded-xl border px-2 py-1 w-40">
                         <option value="list">list</option>
                         <option value="text">text</option>
                         <option value="boolean">boolean</option>

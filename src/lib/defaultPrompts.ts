@@ -30,7 +30,8 @@ export const getDefaultSubOptionPrompt = (
   config: AppConfig,
   formatId: string
 ): string => {
-  const fmt = config.formats.find(f => f.id === formatId);
-  // Если понадобится — добавьте в конфиг fmt.defaultSubOptionPrompt
+  // Если понадобится — добавьте в конфиг defaultSubOptionPrompt для формата
+  void config;
+  void formatId;
   return ""; 
 };
