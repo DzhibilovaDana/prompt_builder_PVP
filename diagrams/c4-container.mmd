@@ -1,22 +1,21 @@
-%% C4 Level 2 (Container)
 C4Container
     title Prompt Builder PVP - C4 L2 Container Diagram
 
-    Person(author, "Автор", "Собирает промпты в UI")
-    Person(admin, "Администратор", "Управляет конфигурацией")
+    Person(author, "Автор", "Собирает промпты")
+    Person(admin, "Администратор", "Управляет конфигами")
 
     System_Boundary(pb, "Prompt Builder PVP") {
-      Container(web, "Next.js Web UI", "TypeScript, React", "UI конструктора и админ-панель")
-      Container(api, "API Routes", "Next.js Route Handlers", "Конфиги, пресеты, генерация")
-      ContainerDb(cfg, "Config DB", "SQLite (MVP) / PostgreSQL + Prisma (MUP)", "Конфиги, пресеты, версии")
+      Container(web, "Web UI", "Next.js<br/>(TS/React)", "Конструктор<br/>Админ-панель")
+      Container(api, "API", "Next.js<br/>Route Handlers", "Конфиги и пресеты<br/>Сборка промпта")
+      ContainerDb(cfg, "Config DB", "SQLite (MVP)<br/>PostgreSQL + Prisma (MUP)", "Конфиги, пресеты, версии")
     }
 
-    System_Ext(obj, "Object Storage (planned)", "S3/MinIO")
-    System_Ext(llm, "LLM Provider (planned)", "OpenAI/другие провайдеры")
+    System_Ext(obj, "Object Storage", "S3/MinIO<br/>(planned)")
+    System_Ext(llm, "LLM Provider", "OpenAI и др.<br/>(planned)")
 
-    Rel(author, web, "Работает в конструкторе", "HTTPS")
-    Rel(admin, web, "Работает в админке", "HTTPS")
-    Rel(web, api, "Вызывает API", "HTTPS")
-    Rel(api, cfg, "Читает/пишет конфиг и пресеты", "SQL")
-    Rel(api, obj, "Сохраняет/читает артефакты", "S3 API")
-    Rel(api, llm, "Отправляет prompt", "HTTPS API")
+    Rel(author, web, "Конструктор", "HTTPS")
+    Rel(admin, web, "Админка", "HTTPS")
+    Rel(web, api, "Запросы", "HTTPS")
+    Rel(api, cfg, "Чтение/запись", "SQL")
+    Rel(api, obj, "Артефакты", "S3 API")
+    Rel(api, llm, "Запрос к модели", "HTTPS")
