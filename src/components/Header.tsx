@@ -26,7 +26,7 @@ export const Header: React.FC = () => {
         }
         const data = await res.json();
         if (mounted) setUser(data?.user ?? null);
-      } catch (err) {
+      } catch {
         if (mounted) setUser(null);
       } finally {
         if (mounted) setLoading(false);
@@ -43,8 +43,9 @@ export const Header: React.FC = () => {
       await fetch("/api/auth/logout", { method: "POST" });
       // После логаута проще перезагрузить страницу — все компоненты обновятся и сервер (если нужен) перестроится.
       window.location.href = "/";
-    } catch (err) {
-      alert("Ошибка при выходе: " + ((err as any)?.message ?? String(err)));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      alert("Ошибка при выходе: " + message);
       setLoggingOut(false);
     }
   };

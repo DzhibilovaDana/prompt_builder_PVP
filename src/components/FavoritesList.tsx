@@ -12,6 +12,20 @@ interface FavoritesListProps {
   onShareFavorite?: (fav: FavoritePrompt) => Promise<void> | void;
 }
 
+function getErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function toImportedFavorite(value: unknown): { title: string; prompt: string } | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.prompt !== "string") return null;
+  return {
+    title: typeof candidate.title === "string" && candidate.title ? candidate.title : "Промпт без названия",
+    prompt: candidate.prompt,
+  };
+}
+
 function downloadFile(filename: string, content: string, mimeType = "application/json;charset=utf-8") {
   if (typeof window === "undefined") return;
   const blob = new Blob([content], { type: mimeType });
@@ -54,23 +68,18 @@ export const FavoritesList: React.FC<FavoritesListProps> = ({
     if (!file) return;
     try {
       const text = await file.text();
-      const parsed = JSON.parse(text);
+      const parsed: unknown = JSON.parse(text);
       // Expect an array of objects with {title, prompt}
       let items: { title: string; prompt: string }[] = [];
       if (Array.isArray(parsed)) {
-        items = parsed
-          .map((p) => {
-            if (p && typeof p === "object" && typeof p.prompt === "string") {
-              return { title: p.title || "Промпт без названия", prompt: p.prompt };
-            }
-            return null;
-          })
-          .filter(Boolean) as { title: string; prompt: string }[];
-      } else if (parsed && typeof parsed === "object" && typeof parsed.prompt === "string") {
-        items = [{ title: parsed.title || "Промпт без названия", prompt: parsed.prompt }];
+        items = parsed.map((p: unknown) => toImportedFavorite(p)).filter((item): item is { title: string; prompt: string } => item !== null);
       } else {
-        alert("Неподдерживаемый формат файла. Ожидается JSON-массив объектов {title, prompt}.");
-        return;
+        const single = toImportedFavorite(parsed);
+        if (!single) {
+          alert("Неподдерживаемый формат файла. Ожидается JSON-массив объектов {title, prompt}.");
+          return;
+        }
+        items = [single];
       }
 
       if (items.length === 0) {
@@ -84,8 +93,8 @@ export const FavoritesList: React.FC<FavoritesListProps> = ({
         // если нет обработчика — просто скачиваем обратно как safety
         alert(`Импортировано ${items.length} промптов (локально)`);
       }
-    } catch (err) {
-      alert("Ошибка при импортировании файла: " + (err as any)?.message ?? String(err));
+    } catch (err: unknown) {
+      alert("Ошибка при импортировании файла: " + getErrorMessage(err));
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -96,8 +105,8 @@ export const FavoritesList: React.FC<FavoritesListProps> = ({
     if (onShareFavorite) {
       try {
         await onShareFavorite(fav);
-      } catch (err) {
-        alert("Ошибка при попытке поделиться промптом: " + (err as any)?.message ?? String(err));
+      } catch (err: unknown) {
+        alert("Ошибка при попытке поделиться промптом: " + getErrorMessage(err));
       }
       return;
     }

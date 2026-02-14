@@ -1,9 +1,28 @@
 // src/app/api/generate/route.ts
 import { NextResponse } from "next/server";
-import { generateWithProviders, ProviderResult } from "@/lib/inference";
+import { generateWithProviders } from "@/lib/inference";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type OpenAIResponse = {
+  output_text?: string;
+};
+
+type SingleModelSuccess = {
+  mode: "mock" | "openai";
+  model: string;
+  output: string;
+};
+
+type SingleModelError = {
+  error: string;
+  status: number;
+};
+
+function isSingleModelError(value: SingleModelSuccess | SingleModelError): value is SingleModelError {
+  return "error" in value;
+}
 
 function mockGenerate(prompt: string): string {
   return [
@@ -18,14 +37,9 @@ function mockGenerate(prompt: string): string {
   ].join("\n");
 }
 
-/**
- * Возвращаем результат для одного OpenAI-подхода,
- * оставляя существующую логику (model -> OpenAI, or mock if no key).
- */
-async function handleSingleModel(prompt: string, model: string) {
+async function handleSingleModel(prompt: string, model: string): Promise<SingleModelSuccess | SingleModelError> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    // Если ключа нет — возвращаем mock
     return { mode: "mock", model, output: mockGenerate(prompt) };
   }
 
@@ -46,8 +60,7 @@ async function handleSingleModel(prompt: string, model: string) {
     return { error: `OpenAI error: ${text}`, status: 502 };
   }
 
-  const data = (await res.json()) as any;
-  // старая логика ожидала output_text; если его нет - сериализуем весь ответ
+  const data = (await res.json()) as OpenAIResponse;
   const output = typeof data.output_text === "string" ? data.output_text : JSON.stringify(data);
   return { mode: "openai", model, output };
 }
@@ -56,16 +69,14 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
 
-    // If client asks for providers array -> multi-provider mode
     if (Array.isArray(body.providers)) {
       const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
-      const providers = body.providers.filter((p) => typeof p === "string") as string[];
+      const providers = body.providers.filter((p): p is string => typeof p === "string");
 
       if (!prompt) {
         return NextResponse.json({ error: "prompt required" }, { status: 400 });
       }
 
-      // If providers array empty -> degraded response
       if (providers.length === 0) {
         return NextResponse.json({
           mode: "degraded",
@@ -74,13 +85,10 @@ export async function POST(req: Request) {
         });
       }
 
-      // call inference adapters (may be mock)
       const results = await generateWithProviders(providers, prompt);
-      // results: Record<provider, ProviderResult>
       return NextResponse.json({ mode: "ok", results });
     }
 
-    // Otherwise keep compatibility: single-model flow (existing behavior)
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
     const model = typeof body.model === "string" && body.model.trim() ? body.model : "gpt-4.1-mini";
 
@@ -89,11 +97,10 @@ export async function POST(req: Request) {
     }
 
     const single = await handleSingleModel(prompt, model);
-    if ((single as any).error) {
-      return NextResponse.json({ error: (single as any).error }, { status: (single as any).status ?? 502 });
+    if (isSingleModelError(single)) {
+      return NextResponse.json({ error: single.error }, { status: single.status });
     }
 
-    // Return same shape as before for backward compatibility
     return NextResponse.json(single);
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Generate error";
