@@ -7,17 +7,17 @@ end;
 
 subgraph Cloud["Сервер (облако)"];
   subgraph App["Web/API Server"];
-    N["Next.js App\nWeb UI + API Routes"];
+    N["Next.js App Web UI + API Routes"];
   end;
 
   subgraph DB["DB Server"];
-    P["Config DB\nPostgreSQL / SQLite (MVP)"];
+    P["Config DB PostgreSQL / SQLite (MVP)"];
   end;
 end;
 
-S["Object Storage\nS3/MinIO (planned)"];
-L["LLM Provider\nOpenAI и др. (planned)"];
-E["Analytics Storage\nEvents/Logs (planned)"];
+S["Object Storage S3/MinIO (planned)"];
+L["LLM Provider OpenAI и др. (planned)"];
+E["Analytics Storage Events/Logs (planned)"];
 
 A -->|HTTPS| N;
 B -->|HTTPS| N;
