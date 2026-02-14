@@ -1,27 +1,10 @@
 // src/lib/userStore.ts
 import crypto from "crypto";
 import { execFileSync } from "child_process";
-import path from "path";
-import fs from "fs";
+import { DB_PATH, ensureDatabaseSchema } from "@/lib/dbSchema";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DB_PATH = path.join(DATA_DIR, "db.sqlite");
-
-// ensure DB file exists (reuse promptStore.create logic via cli)
 function ensureDbFile(): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-
-  // tables already created by promptStore.ensureDbFile; if not, simple create minimal tables
-  const createSQL = `
-    PRAGMA foreign_keys = ON;
-  `;
-  try {
-    execFileSync("sqlite3", [DB_PATH, createSQL]);
-  } catch {
-    // ignore
-  }
+  ensureDatabaseSchema();
 }
 
 function runSql<T>(sql: string, args: string[] = []): T {

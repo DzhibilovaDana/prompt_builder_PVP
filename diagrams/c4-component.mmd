@@ -1,0 +1,41 @@
+%% C4 Level 3 (Component)
+C4Component
+    title Prompt Builder PVP - C4 L3 Component Diagram (API)
+
+    Person(admin, "Администратор", "Admin UI / ConfigEditor")
+    Person(author, "Автор", "Web UI / FormRenderer")
+
+    Container_Boundary(apiApp, "API Application (Next.js API Routes)") {
+      Component(auth, "AuthMiddleware", "Next.js middleware", "Admin guard")
+      Component(configController, "ConfigController", "Route handler", "GET/PUT config, versions")
+      Component(promptController, "PromptController", "Route handler", "Build prompt, LLM requests")
+
+      Component(configService, "ConfigService", "Service", "Validation, versioning, rollback")
+      Component(presetService, "PresetService", "Service", "Favorites, presets")
+      Component(promptBuilder, "PromptBuilderService", "Service", "Assemble prompt")
+      Component(inference, "InferenceAdapter", "Adapter", "LLM REST client")
+      Component(analytics, "AnalyticsTracker", "Service", "Metrics, TTP, errors")
+
+      ComponentDb(configRepo, "ConfigRepository", "Repository", "Load/save config")
+      ComponentDb(presetRepo, "PresetRepository", "Repository", "Load/save presets")
+    }
+
+    SystemDb_Ext(configDb, "Config DB", "SQLite (MVP) / Postgres (MUP)")
+    System_Ext(llm, "LLM Provider (planned)", "OpenAI / др.")
+    SystemDb_Ext(analyticsDb, "Analytics Storage (planned)", "Events")
+
+    Rel(admin, auth, "Запросы админки", "HTTPS")
+    Rel(auth, configController, "Пропускает авторизованные")
+    Rel(configController, configService, "Управляет конфигом")
+    Rel(configController, presetService, "Управляет пресетами")
+    Rel(configService, configRepo, "CRUD")
+    Rel(presetService, presetRepo, "CRUD")
+    Rel(configRepo, configDb, "SQL")
+    Rel(presetRepo, configDb, "SQL")
+
+    Rel(author, promptController, "Собирает prompt", "HTTPS")
+    Rel(promptController, promptBuilder, "Формирует prompt")
+    Rel(promptController, inference, "Вызывает LLM")
+    Rel(promptController, analytics, "Пишет события")
+    Rel(inference, llm, "HTTPS API")
+    Rel(analytics, analyticsDb, "write")
