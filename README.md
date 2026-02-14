@@ -37,7 +37,7 @@
 - `public/` — статические ассеты.
 - `.github/workflows/` — CI workflow.
 - `db/` *(планируется)* — миграции/инициализация БД.
-- `diagrams/` *(планируется)* — архитектурные схемы.
+- `diagrams/` — архитектурные схемы.
 - `scripts/` *(планируется)* — вспомогательные скрипты.
 
 
@@ -64,15 +64,15 @@ npm run dev
 - Приложение доступно на `http://localhost:3000`.
 - API роуты доступны по префиксу `http://localhost:3000/api/*`.
 
-### 3) Инициализация БД (когда будет добавлена SQLite/Prisma)
+### 3) Инициализация локальной SQLite БД
 
-На текущем этапе добавлена локальная SQLite БД `data/db.sqlite` и скрипт инициализации:
+В текущей версии используется локальная SQLite БД `data/db.sqlite` и скрипт инициализации:
 
 ```bash
 npm run db:init
 ```
 
-Для следующего этапа можно мигрировать на SQLite/Prisma:
+Для следующего этапа (MUP) можно мигрировать на Prisma + PostgreSQL:
 
 ```bash
 npx prisma migrate dev
@@ -127,7 +127,7 @@ curl -X POST http://localhost:3000/api/generate \
 Рекомендуемые переменные:
 
 - `OPENAI_API_KEY` — ключ API модели (если не задан, `/api/generate` работает в mock-режиме).
-- `DATABASE_URL` — путь/URL к БД для следующего этапа (SQLite/Prisma migration).
+- `DATABASE_URL` — путь/URL к БД для следующего этапа (Prisma + PostgreSQL migration).
 
 
 ## Архитектура
@@ -136,7 +136,8 @@ curl -X POST http://localhost:3000/api/generate \
 
 - C4 L1 (Context): `diagrams/c4-context.mmd`
 - C4 L2 (Container): `diagrams/c4-container.mmd`
-- Deployment: `diagrams/deployment.mmd`
+- C4 L3 (Component, API): `diagrams/c4-component.mmd`
+- Deployment (инфраструктурный вид): `diagrams/deployment.mmd`
 
 Также добавлен чеклист соответствия критериям: `docs/compliance-checklist.md`.
 
