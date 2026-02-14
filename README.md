@@ -66,11 +66,15 @@ npm run dev
 
 ### 3) Инициализация БД (когда будет добавлена SQLite/Prisma)
 
-На текущем этапе MVP БД не используется. Для будущего этапа можно зарезервировать команды:
+На текущем этапе добавлена локальная SQLite БД `data/db.sqlite` и скрипт инициализации:
 
 ```bash
 npm run db:init
-# или
+```
+
+Для следующего этапа можно мигрировать на SQLite/Prisma:
+
+```bash
 npx prisma migrate dev
 ```
 
@@ -82,14 +86,48 @@ npm run build  # production build
 npm start      # запуск production-сервера
 ```
 
+
+## Backend API (Phase 2)
+
+
+Добавлены API-эндпоинты для хранения промптов и генерации ответа:
+
+- `GET /api/prompts` — список сохранённых промптов.
+- `POST /api/prompts` — создать промпт (`title`, `content`).
+- `GET /api/prompts/:id` — получить промпт по id.
+- `DELETE /api/prompts/:id` — удалить промпт.
+- `POST /api/generate` — генерация ответа по prompt.
+  - Если задан `OPENAI_API_KEY`, выполняется запрос к OpenAI Responses API.
+  - Если ключа нет, возвращается mock-ответ для офлайн-демо.
+
+Примеры:
+
+```bash
+# Инициализация локального хранилища
+npm run db:init
+
+# Создание промпта
+curl -X POST http://localhost:3000/api/prompts \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Demo","content":"Сформируй план MVP"}'
+
+# Список промптов
+curl http://localhost:3000/api/prompts
+
+# Генерация (mock или OpenAI)
+curl -X POST http://localhost:3000/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"Составь краткий roadmap релиза"}'
+```
+
 ## Переменные окружения
 
-На текущем MVP этапе **обязательных переменных окружения нет**.
+Для локального запуска обязательных переменных окружения нет (кроме случаев, когда нужен реальный вызов OpenAI API).
 
-Для MUP-этапа (интеграции с БД/LLM) рекомендуется заранее предусмотреть:
+Рекомендуемые переменные:
 
-- `OPENAI_API_KEY` — ключ API модели.
-- `DATABASE_URL` — строка подключения к БД.
+- `OPENAI_API_KEY` — ключ API модели (если не задан, `/api/generate` работает в mock-режиме).
+- `DATABASE_URL` — путь/URL к БД для следующего этапа (SQLite/Prisma migration).
 
 
 ## Архитектура
@@ -114,6 +152,12 @@ docker build -t prompt-builder .
 
 ```bash
 docker run --rm -p 3000:3000 prompt-builder
+```
+
+Либо через docker compose (с volume для сохранения `data/db.sqlite`):
+
+```bash
+docker compose up --build
 ```
 
 После запуска приложение будет доступно на `http://localhost:3000`.
