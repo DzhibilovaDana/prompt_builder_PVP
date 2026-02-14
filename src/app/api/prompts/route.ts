@@ -1,17 +1,17 @@
 // src/app/api/prompts/route.ts
 import { NextResponse } from "next/server";
-import { createPrompt, listPrompts } from "@/lib/promptStore";
+import { createPrompt, listPrompts, type PromptRecord } from "@/lib/promptStore";
 import { getUserBySession } from "@/lib/userStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function toPublic(item: any) {
+function toPublic(item: PromptRecord) {
   return {
     id: item.id,
     title: item.title,
-    prompt: item.content ?? item.prompt ?? "",
-    createdAt: item.created_at ?? item.createdAt ?? new Date().toISOString(),
+    prompt: item.content,
+    createdAt: item.created_at,
   };
 }
 
@@ -40,13 +40,12 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json()) as Record<string, unknown>;
     const title = typeof body.title === "string" ? body.title.trim() : "";
-    const contentCandidate =
+    const content =
       typeof body.content === "string"
         ? body.content.trim()
         : typeof body.prompt === "string"
-        ? body.prompt.trim()
-        : "";
-    const content = contentCandidate;
+          ? body.prompt.trim()
+          : "";
 
     if (!title || !content) {
       return NextResponse.json({ error: "title and prompt (or content) are required" }, { status: 400 });

@@ -66,7 +66,7 @@ export const FormatSelector: React.FC<FormatSelectorProps> = ({
         onKeyDown={handleKeyDown}
         className="flex flex-wrap gap-3"
       >
-        {formats.map((f, idx) => {
+        {formats.map((f) => {
           const isSelected = selectedFormat === f.id;
           return (
             <button

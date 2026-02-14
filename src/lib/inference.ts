@@ -11,7 +11,7 @@ function sleep(ms: number) {
   return new Promise((res) => setTimeout(res, ms));
 }
 
-async function callOpenAI(prompt: string) {
+async function callOpenAI(prompt: string): Promise<ProviderResult> {
   const t0 = Date.now();
   await sleep(700); // simulate latency
   const summary = prompt.length > 180 ? prompt.slice(0, 180) + "…" : prompt;
@@ -23,7 +23,7 @@ async function callOpenAI(prompt: string) {
   };
 }
 
-async function callClaude(prompt: string) {
+async function callClaude(prompt: string): Promise<ProviderResult> {
   const t0 = Date.now();
   await sleep(1100);
   const summary = prompt.length > 200 ? prompt.slice(0, 200) + "…" : prompt;
@@ -35,7 +35,7 @@ async function callClaude(prompt: string) {
   };
 }
 
-async function callLocal(prompt: string) {
+async function callLocal(prompt: string): Promise<ProviderResult> {
   const t0 = Date.now();
   await sleep(1200);
   const fail = Math.random() < 0.3;

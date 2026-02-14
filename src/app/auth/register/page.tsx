@@ -26,8 +26,9 @@ export default function RegisterPage() {
       } else {
         alert(data.error || "Registration error");
       }
-    } catch (err) {
-      alert("Error: " + (err as any)?.message ?? String(err));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      alert("Error: " + message);
     } finally {
       setLoading(false);
     }

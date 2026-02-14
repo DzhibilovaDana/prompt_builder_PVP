@@ -10,10 +10,28 @@ export interface FavoritePrompt {
 
 const STORAGE_KEY = "prompt_builder_favorites_v1";
 
+type PromptApiRecord = {
+  id: number | string;
+  title?: string;
+  prompt?: string;
+  content?: string;
+  createdAt?: string;
+  created_at?: string;
+};
+
+function toFavoritePrompt(item: PromptApiRecord): FavoritePrompt {
+  return {
+    id: String(item.id),
+    title: item.title || "",
+    prompt: item.prompt || item.content || "",
+    createdAt: item.createdAt || item.created_at || new Date().toISOString(),
+  };
+}
+
 function safeParse(json: string | null): FavoritePrompt[] {
   if (!json) return [];
   try {
-    const parsed = JSON.parse(json);
+    const parsed: unknown = JSON.parse(json);
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter(
@@ -23,10 +41,7 @@ function safeParse(json: string | null): FavoritePrompt[] {
           typeof item.id !== "undefined" &&
           typeof item.prompt === "string"
       )
-      .map((it) => {
-        // Ensure id is string for consistency
-        return { ...it, id: String((it as any).id) };
-      });
+      .map((it) => ({ ...it, id: String(it.id) }));
   } catch {
     return [];
   }
@@ -52,12 +67,7 @@ export function useFavorites() {
           const data = await res.json();
           if (Array.isArray(data)) {
             // Normalize ids to strings
-            const norm = data.map((d: any) => ({
-              id: String(d.id),
-              title: d.title || "",
-              prompt: d.prompt || d.content || "",
-              createdAt: d.createdAt || d.created_at || new Date().toISOString(),
-            }));
+            const norm = data.map((d) => toFavoritePrompt(d as PromptApiRecord));
             setFavorites(norm);
             setServerAvailable(true);
             try {
@@ -80,8 +90,8 @@ export function useFavorites() {
     if (typeof window === "undefined") return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites));
-    } catch (e) {
-      console.error("Не удалось сохранить избранное", e);
+    } catch (err: unknown) {
+      console.error("Не удалось сохранить избранное", err);
     }
   }, [favorites]);
 
@@ -146,12 +156,7 @@ export function useFavorites() {
         const data = await res.json();
         if (!Array.isArray(data)) throw new Error("bad");
         // normalize and replace favorites with authoritative server list
-        const norm = data.map((d: any) => ({
-          id: String(d.id),
-          title: d.title || "",
-          prompt: d.prompt || d.content || "",
-          createdAt: d.createdAt || d.created_at || new Date().toISOString(),
-        }));
+        const norm = data.map((d) => toFavoritePrompt(d as PromptApiRecord));
         setFavorites((prev) => {
           // Prefer server list, but keep local-only items that are not yet on server
           const localOnly = prev.filter((p) => !looksLikeServerId(p.id));
@@ -208,15 +213,15 @@ export function useFavorites() {
             // server responded with error -> mark serverUnavailable and fallback
             setServerAvailable(false);
           }
-        } catch (e) {
+        } catch {
           setServerAvailable(false);
         }
       }
 
       // Fallback local
       const id =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? (crypto as any).randomUUID()
+        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+          ? crypto.randomUUID()
           : `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
       const newItem: FavoritePrompt = {

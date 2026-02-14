@@ -47,6 +47,15 @@ function hashPassword(password: string, salt: string): string {
   return key.toString("hex");
 }
 
+type SessionUserRow = {
+  id: number;
+  email: string;
+  name?: string | null;
+  password_hash: string;
+  salt: string;
+  created_at: string;
+};
+
 export type UserRecord = {
   id: number;
   email: string;
@@ -105,7 +114,7 @@ export async function createSession(userId: number): Promise<string> {
 
 export async function getUserBySession(token: string): Promise<UserRecord | null> {
   const t = escape(token);
-  const rows = runSql<any[]>(`SELECT u.id, u.email, u.name, u.password_hash, u.salt, u.created_at
+  const rows = runSql<SessionUserRow[]>(`SELECT u.id, u.email, u.name, u.password_hash, u.salt, u.created_at
     FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.token = '${t}' LIMIT 1;`);
   const r = rows[0];
   if (!r) return null;

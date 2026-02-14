@@ -10,8 +10,8 @@ import FormatSelector from "@/components/FormatSelector";
 import { IndustryExpertSelector } from "@/components/IndustryExpertSelector";
 import ActionButtons from "@/components/ActionButtons";
 import { PromptResult } from "@/components/PromptResult";
-import Sidebar, { ProviderInfo } from "@/components/Sidebar";
-import ResultsPane from "@/components/ResultsPane";
+import Sidebar, { type ProviderInfo } from "@/components/Sidebar";
+import ResultsPane, { type ProviderResult } from "@/components/ResultsPane";
 import { UserTaskRenderer } from "@/components/UserTaskRenderer";
 import type { AppConfig } from "@/lib/config";
 import { exportPromptAsMarkdown, exportPromptAsHtml } from "@/lib/exportPrompt";
@@ -25,6 +25,10 @@ const ExclusionsRenderer = React.lazy(() => import("./ExclusionsRenderer").then(
 
 interface Props {
   config: AppConfig;
+}
+
+function getErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
@@ -63,7 +67,7 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
   } = usePromptBuilder(config);
 
 
-    const { favorites, addFavorite, removeFavorite, serverAvailable } = useFavorites();
+    const { favorites, addFavorite, removeFavorite } = useFavorites();
 
 
   // Provider selection state (defaults)
@@ -73,7 +77,7 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
     { id: "local", label: "Local LLM", description: "Локальная модель (mock)" },
   ];
   const [selectedProviders, setSelectedProviders] = useState<string[]>(["openai"]);
-  const [generateResults, setGenerateResults] = useState<Record<string, any> | null>(null);
+  const [generateResults, setGenerateResults] = useState<Record<string, ProviderResult> | null>(null);
   const [genMode, setGenMode] = useState<"ok" | "degraded" | "error">("ok");
   const [generating, setGenerating] = useState(false);
 
@@ -147,8 +151,8 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
 
       // created exists but is still local -> server unavailable
       alert("Промпт остался локальным (сервер недоступен). Попробуйте ещё раз, когда сервер будет доступен.");
-    } catch (err) {
-      alert("Ошибка при подготовке ссылки: " + (err as any)?.message ?? String(err));
+    } catch (err: unknown) {
+      alert("Ошибка при подготовке ссылки: " + getErrorMessage(err));
     }
   };
 
@@ -187,7 +191,7 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
 
       if (!res.ok) {
         setGenMode("error");
-        setGenerateResults({ error: data?.error || "Server error" });
+        setGenerateResults({ general: { status: "error", error: data?.error || "Server error" } });
         setGenerating(false);
         return;
       }
@@ -204,7 +208,7 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
       setGenerateResults(data.results || null);
     } catch (e: unknown) {
       setGenMode("error");
-      setGenerateResults({ error: e instanceof Error ? e.message : String(e) });
+      setGenerateResults({ general: { status: "error", error: e instanceof Error ? e.message : String(e) } });
     } finally {
       setGenerating(false);
     }
