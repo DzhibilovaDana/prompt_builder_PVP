@@ -1,7 +1,6 @@
 // src/lib/promptStore.ts
 import { execFileSync } from "child_process";
-import fs from "fs";
-import path from "path";
+import { DB_PATH, ensureDatabaseSchema } from "@/lib/dbSchema";
 
 export type PromptRecord = {
   id: number;
@@ -11,45 +10,8 @@ export type PromptRecord = {
   created_at: string;
 };
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DB_PATH = path.join(DATA_DIR, "db.sqlite");
-
 function ensureDbFile(): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-
-  // Create tables if not exists: users, prompts (with user_id), sessions
-  // Using sqlite3 CLI for simplicity (existing approach)
-  const createSQL = `
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      email TEXT NOT NULL UNIQUE,
-      password_hash TEXT NOT NULL,
-      salt TEXT NOT NULL,
-      name TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-
-    CREATE TABLE IF NOT EXISTS prompts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NULL,
-      title TEXT NOT NULL,
-      content TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS sessions (
-      token TEXT PRIMARY KEY,
-      user_id INTEGER NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-    );
-  `;
-
-  // Note: we pass the SQL to sqlite3 CLI; it will create file if missing
-  execFileSync("sqlite3", [DB_PATH, createSQL]);
+  ensureDatabaseSchema();
 }
 
 function runSql<T>(sql: string, args: string[] = []): T {
