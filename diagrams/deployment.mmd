@@ -1,25 +1,27 @@
-%% Deployment Diagram (infrastructure view)
-flowchart LR
-  subgraph CLIENTS[Клиенты]
-    BA[Browser (Author)]
-    BM[Browser (Admin)]
-  end
+graph LR;
 
-  subgraph CLOUD[Сервер (облако)]
-    subgraph APP[Web/API Server (Next.js)]
-      APPART[artifact: promptbuilder-nextjs]
-    end
+subgraph Clients["Клиенты"];
+  A["Browser (Author)"];
+  B["Browser (Admin)"];
+end;
 
-    subgraph DB[DB Server]
-      CFGDB[(artifact: config-db\nSQLite MVP / Postgres MUP)]
-    end
-  end
+subgraph Cloud["Сервер (облако)"];
+  subgraph App["Web/API Server"];
+    N["Next.js App\nWeb UI + API Routes"];
+  end;
 
-  OBJ[Object Storage (planned)\nS3 / MinIO]
-  LLM[LLM Provider (planned)\nOpenAI / др.]
+  subgraph DB["DB Server"];
+    P["Config DB\nPostgreSQL / SQLite (MVP)"];
+  end;
+end;
 
-  BA -->|HTTPS| APPART
-  BM -->|HTTPS| APPART
-  APPART -->|SQL| CFGDB
-  APPART -. planned .->|S3 API| OBJ
-  APPART -. planned .->|HTTPS API| LLM
+S["Object Storage\nS3/MinIO (planned)"];
+L["LLM Provider\nOpenAI и др. (planned)"];
+E["Analytics Storage\nEvents/Logs (planned)"];
+
+A -->|HTTPS| N;
+B -->|HTTPS| N;
+N -->|SQL| P;
+N -->|S3 API| S;
+N -->|HTTPS| L;
+N -->|HTTPS| E;
