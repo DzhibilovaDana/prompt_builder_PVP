@@ -1,0 +1,8 @@
+{
+  "openaiApiKey": "sk-...",
+  "deepseekApiKey": "sk-...",
+  "yandexApiKey": "AQVN...",
+  "yandexFolderId": "your-yandex-folder-id",
+  "yandexModelUri": "gpt://<folder-id>/yandexgpt-lite/latest",
+  "anthropicApiKey": "sk-ant-..."
+}

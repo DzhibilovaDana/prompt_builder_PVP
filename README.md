@@ -126,8 +126,16 @@ curl -X POST http://localhost:3000/api/generate \
 
 Рекомендуемые переменные:
 
-- `OPENAI_API_KEY` — ключ API модели (если не задан, `/api/generate` работает в mock-режиме).
+- `OPENAI_API_KEY` — ключ API OpenAI/ChatGPT.
+- `DEEPSEEK_API_KEY` — ключ DeepSeek API.
+- `YANDEX_API_KEY` — API-ключ Yandex Cloud для Foundation Models.
+- `YANDEX_FOLDER_ID` — Folder ID в Yandex Cloud (если не передан `YANDEX_MODEL_URI`).
+- `YANDEX_MODEL_URI` — полный modelUri для YandexGPT (опционально).
+- `ANTHROPIC_API_KEY` — ключ Anthropic Claude API.
 - `DATABASE_URL` — путь/URL к БД для следующего этапа (Prisma + PostgreSQL migration).
+
+Также можно хранить ключи в локальном JSON-файле `config/llm-keys.local.json` (файл добавлен в `.gitignore`).
+Шаблон: `config/llm-keys.local.example.json`.
 
 
 ## Архитектура
