@@ -74,8 +74,6 @@ export DATABASE_URL=postgresql://prompt_builder:prompt_builder@localhost:5432/pr
 npm run db:init
 ```
 
-> Если `DATABASE_URL` не задан, `npm run db:init` завершится без ошибок и пропустит инициализацию схемы.
-
 ### 4) Основные команды
 
 ```bash
