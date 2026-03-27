@@ -1,5 +1,5 @@
 // src/lib/inference.ts
-import { type ProviderSecrets, resolveProviderSecrets } from "@/lib/providerSecrets";
+import { resolveProviderSecrets } from "@/lib/providerSecrets";
 
 export type ProviderResult = {
   status: "ok" | "error" | "pending";
@@ -23,7 +23,7 @@ function normalizeText(value: unknown): string {
 
 async function callOpenAI(prompt: string, secrets: ProviderSecrets): Promise<ProviderResult> {
   const t0 = Date.now();
-  const { openaiApiKey } = secrets;
+  const { openaiApiKey } = resolveProviderSecrets();
 
   if (!openaiApiKey) {
     return {
@@ -61,9 +61,9 @@ async function callOpenAI(prompt: string, secrets: ProviderSecrets): Promise<Pro
   };
 }
 
-async function callDeepSeek(prompt: string, secrets: ProviderSecrets): Promise<ProviderResult> {
+async function callDeepSeek(prompt: string): Promise<ProviderResult> {
   const t0 = Date.now();
-  const { deepseekApiKey } = secrets;
+  const { deepseekApiKey } = resolveProviderSecrets();
 
   if (!deepseekApiKey) {
     return {
@@ -107,9 +107,9 @@ async function callDeepSeek(prompt: string, secrets: ProviderSecrets): Promise<P
   };
 }
 
-async function callYandexGPT(prompt: string, secrets: ProviderSecrets): Promise<ProviderResult> {
+async function callYandexGPT(prompt: string): Promise<ProviderResult> {
   const t0 = Date.now();
-  const { yandexApiKey, yandexFolderId, yandexModelUri } = secrets;
+  const { yandexApiKey, yandexFolderId, yandexModelUri } = resolveProviderSecrets();
 
   if (!yandexApiKey) {
     return {
@@ -162,9 +162,9 @@ async function callYandexGPT(prompt: string, secrets: ProviderSecrets): Promise<
   };
 }
 
-async function callClaude(prompt: string, secrets: ProviderSecrets): Promise<ProviderResult> {
+async function callClaude(prompt: string): Promise<ProviderResult> {
   const t0 = Date.now();
-  const { anthropicApiKey } = secrets;
+  const { anthropicApiKey } = resolveProviderSecrets();
 
   if (!anthropicApiKey) {
     return {
@@ -223,77 +223,24 @@ async function callLocal(prompt: string): Promise<ProviderResult> {
   };
 }
 
-export type ProviderHealth = {
-  configured: boolean;
-  hasApiKey: boolean;
-  missing: string[];
-  model: string;
-};
-
-export function getProvidersHealth(overrides?: ProviderSecrets): Record<string, ProviderHealth> {
-  const secrets = resolveProviderSecrets(overrides);
-  const yandexModel = secrets.yandexModelUri || (secrets.yandexFolderId ? `gpt://${secrets.yandexFolderId}/yandexgpt-lite/latest` : DEFAULT_YANDEX_MODEL_URI);
-
-  return {
-    openai: {
-      configured: Boolean(secrets.openaiApiKey),
-      hasApiKey: Boolean(secrets.openaiApiKey),
-      missing: secrets.openaiApiKey ? [] : ["openaiApiKey/OPENAI_API_KEY"],
-      model: DEFAULT_OPENAI_MODEL,
-    },
-    deepseek: {
-      configured: Boolean(secrets.deepseekApiKey),
-      hasApiKey: Boolean(secrets.deepseekApiKey),
-      missing: secrets.deepseekApiKey ? [] : ["deepseekApiKey/DEEPSEEK_API_KEY"],
-      model: DEFAULT_DEEPSEEK_MODEL,
-    },
-    yandexgpt: {
-      configured: Boolean(secrets.yandexApiKey && (secrets.yandexModelUri || secrets.yandexFolderId)),
-      hasApiKey: Boolean(secrets.yandexApiKey),
-      missing: [
-        ...(secrets.yandexApiKey ? [] : ["yandexApiKey/YANDEX_API_KEY"]),
-        ...(secrets.yandexModelUri || secrets.yandexFolderId ? [] : ["yandexModelUri/YANDEX_MODEL_URI or yandexFolderId/YANDEX_FOLDER_ID"]),
-      ],
-      model: yandexModel,
-    },
-    claude: {
-      configured: Boolean(secrets.anthropicApiKey),
-      hasApiKey: Boolean(secrets.anthropicApiKey),
-      missing: secrets.anthropicApiKey ? [] : ["anthropicApiKey/ANTHROPIC_API_KEY"],
-      model: DEFAULT_CLAUDE_MODEL,
-    },
-    local: {
-      configured: true,
-      hasApiKey: false,
-      missing: [],
-      model: "local-llm",
-    },
-  };
-}
-
-export async function generateWithProviders(
-  providers: string[],
-  prompt: string,
-  overrides?: ProviderSecrets,
-): Promise<Record<string, ProviderResult>> {
-  const secrets = resolveProviderSecrets(overrides);
+export async function generateWithProviders(providers: string[], prompt: string): Promise<Record<string, ProviderResult>> {
   const calls = providers.map(async (providerName) => {
     const provider = providerName.toLowerCase();
 
     if (provider === "openai" || provider === "chatgpt") {
-      return { provider: providerName, result: await callOpenAI(prompt, secrets) } as const;
+      return { provider: providerName, result: await callOpenAI(prompt) } as const;
     }
 
     if (provider === "deepseek") {
-      return { provider: providerName, result: await callDeepSeek(prompt, secrets) } as const;
+      return { provider: providerName, result: await callDeepSeek(prompt) } as const;
     }
 
     if (provider === "yandex" || provider === "yandexgpt") {
-      return { provider: providerName, result: await callYandexGPT(prompt, secrets) } as const;
+      return { provider: providerName, result: await callYandexGPT(prompt) } as const;
     }
 
     if (provider === "claude" || provider === "anthropic") {
-      return { provider: providerName, result: await callClaude(prompt, secrets) } as const;
+      return { provider: providerName, result: await callClaude(prompt) } as const;
     }
 
     if (provider === "local") {

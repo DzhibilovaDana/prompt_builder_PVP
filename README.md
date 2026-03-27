@@ -176,6 +176,9 @@ curl http://localhost:3000/api/providers/health
 2. `config/llm-keys.local.json`.
 3. ENV-переменные.
 
+Также можно хранить ключи в локальном JSON-файле `config/llm-keys.local.json` (файл добавлен в `.gitignore`).
+Шаблон: `config/llm-keys.local.example.json`.
+
 
 ## Архитектура
 
