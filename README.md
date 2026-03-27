@@ -196,6 +196,8 @@ docker run --rm -p 3000:3000 \
 
 > Для Linux добавляйте `--add-host=host.docker.internal:host-gateway`, иначе имя `host.docker.internal` может не резолвиться.
 
+Если на сервере не запущен PostgreSQL, используйте `docker compose up -d --build` — в `docker-compose.yml` уже описан сервис `postgres` и приложение подключается к нему по хосту `postgres`.
+
 После старта контейнера и доступности PostgreSQL выполните инициализацию схемы:
 
 ```bash

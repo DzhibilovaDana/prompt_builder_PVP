@@ -18,6 +18,8 @@ function runPsql(args: string[], errorMessage: string): string {
     return execFileSync("psql", args, {
       encoding: "utf-8",
       stdio: "pipe",
+      timeout: 2500,
+      env: { ...process.env, PGCONNECT_TIMEOUT: "2" },
     }).trim();
   } catch (error: unknown) {
     const detail =
