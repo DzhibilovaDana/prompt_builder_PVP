@@ -2,9 +2,6 @@ import { execFileSync } from "child_process";
 
 export type DbEngine = "postgres";
 
-let schemaReady = false;
-let schemaInitPromise: Promise<void> | null = null;
-
 function getPostgresUrl(): string {
   const url = process.env.DATABASE_URL?.trim();
   if (!url || (!url.startsWith("postgresql://") && !url.startsWith("postgres://"))) {
@@ -13,32 +10,7 @@ function getPostgresUrl(): string {
   return url;
 }
 
-function normalizeSql(sql: string): string {
-  return sql.trim().replace(/;\s*$/, "");
-}
-
-function runPsql(args: string[], errorMessage: string): string {
-  try {
-    return execFileSync("psql", args, {
-      encoding: "utf-8",
-      stdio: "pipe",
-      timeout: 2500,
-      env: { ...process.env, PGCONNECT_TIMEOUT: "2" },
-    }).trim();
-  } catch (error: unknown) {
-    const detail =
-      error && typeof error === "object" && "stderr" in error
-        ? String((error as { stderr?: string }).stderr || "")
-            .split("\n")
-            .find((line) => line.trim().length > 0) || "unknown psql error"
-        : "unknown psql error";
-
-    console.error(`[db] ${errorMessage}: ${detail}`);
-    throw new Error(errorMessage);
-  }
-}
-
-async function initSchemaOnce(): Promise<void> {
+export async function ensureDatabaseSchema(): Promise<void> {
   const databaseUrl = getPostgresUrl();
   const sql = `
     CREATE TABLE IF NOT EXISTS users (
@@ -160,20 +132,10 @@ async function initSchemaOnce(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_prompt_scores_prompt ON prompt_scores(prompt_id, created_at DESC);
   `;
 
-  runPsql([databaseUrl, "-v", "ON_ERROR_STOP=1", "-c", sql], "Database schema initialization failed");
-  schemaReady = true;
-}
-
-export async function ensureDatabaseSchema(): Promise<void> {
-  if (schemaReady) return;
-  if (!schemaInitPromise) {
-    schemaInitPromise = initSchemaOnce().finally(() => {
-      if (!schemaReady) {
-        schemaInitPromise = null;
-      }
-    });
-  }
-  await schemaInitPromise;
+  execFileSync("psql", [databaseUrl, "-v", "ON_ERROR_STOP=1", "-c", sql], {
+    encoding: "utf-8",
+    stdio: "pipe",
+  });
 }
 
 export function getDatabaseEngine(): DbEngine {

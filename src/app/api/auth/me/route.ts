@@ -14,7 +14,7 @@ export async function GET(req: Request) {
     if (!user) return NextResponse.json({ user: null });
     return NextResponse.json({ user: { id: user.id, email: user.email, name: user.name } });
   } catch (e: unknown) {
-    console.error("Session check failed", e instanceof Error ? e.message : "unknown error");
+    console.error("Session check failed", e);
     return NextResponse.json({ error: "Система временно недоступна" }, { status: 503 });
   }
 }

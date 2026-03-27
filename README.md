@@ -74,14 +74,6 @@ export DATABASE_URL=postgresql://prompt_builder:prompt_builder@localhost:5432/pr
 npm run db:init
 ```
 
-Сбросить всех пользователей (и связанные записи) можно так:
-
-```bash
-npm run db:reset-users
-```
-
-> Если `DATABASE_URL` не задан, `npm run db:init` завершится без ошибок и пропустит инициализацию схемы.
-
 ### 4) Основные команды
 
 ```bash
@@ -167,7 +159,6 @@ curl http://localhost:3000/api/providers/health
 - `YANDEX_MODEL_URI` — полный modelUri для YandexGPT (опционально).
 - `ANTHROPIC_API_KEY` — ключ Anthropic Claude API.
 - `DATABASE_URL` — URL подключения к PostgreSQL (обязателен).
-- `SESSION_COOKIE_SECURE` — `true`, если нужен флаг `Secure` для auth cookie (включайте за HTTPS).
 
 Также можно хранить ключи в локальном JSON-файле `config/llm-keys.local.json` (файл добавлен в `.gitignore`).
 Шаблон: `config/llm-keys.local.example.json`.
@@ -196,25 +187,17 @@ docker build -t prompt-builder .
 
 ```bash
 docker run --rm -p 3000:3000 \
-  --add-host=host.docker.internal:host-gateway \
   -e DATABASE_URL=postgresql://prompt_builder:prompt_builder@host.docker.internal:5432/prompt_builder \
   prompt-builder
 ```
-
-> Для Linux добавляйте `--add-host=host.docker.internal:host-gateway`, иначе имя `host.docker.internal` может не резолвиться.
-
-Если на сервере не запущен PostgreSQL, используйте `docker compose up -d --build` — в `docker-compose.yml` уже описан сервис `postgres` и приложение подключается к нему по хосту `postgres`.
 
 После старта контейнера и доступности PostgreSQL выполните инициализацию схемы:
 
 ```bash
 docker run --rm \
-  --add-host=host.docker.internal:host-gateway \
   -e DATABASE_URL=postgresql://prompt_builder:prompt_builder@host.docker.internal:5432/prompt_builder \
   prompt-builder npm run db:init
 ```
-
-Если получите ошибку `container name is already in use`, удалите старый контейнер: `docker rm -f prompt-builder`.
 
 Либо через docker compose:
 

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { deleteSession } from "@/lib/userStore";
 
 function clearSessionCookie() {
-  const secure = process.env.SESSION_COOKIE_SECURE === "true" ? "Secure; " : "";
+  const secure = process.env.NODE_ENV === "production" ? "Secure; " : "";
   return `pb_session=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax; ${secure}`;
 }
 
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     res.headers.append("Set-Cookie", clearSessionCookie());
     return res;
   } catch (e: unknown) {
-    console.error("Logout failed", e instanceof Error ? e.message : "unknown error");
+    console.error("Logout failed", e);
     return NextResponse.json({ error: "Система временно недоступна" }, { status: 503 });
   }
 }
