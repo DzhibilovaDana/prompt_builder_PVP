@@ -13,6 +13,10 @@ function getPostgresUrl(): string {
   return url;
 }
 
+function normalizeSql(sql: string): string {
+  return sql.trim().replace(/;\s*$/, "");
+}
+
 function runPsql(args: string[], errorMessage: string): string {
   try {
     return execFileSync("psql", args, {
@@ -178,7 +182,7 @@ export function getDatabaseEngine(): DbEngine {
 
 export function runPostgresJsonQuery<T>(sql: string): T {
   const databaseUrl = getPostgresUrl();
-  const wrapped = `WITH t AS (${sql}) SELECT COALESCE(json_agg(t), '[]'::json) FROM t;`;
+  const wrapped = `WITH t AS (${normalizeSql(sql)}) SELECT COALESCE(json_agg(t), '[]'::json) FROM t;`;
   const output = runPsql(
     [databaseUrl, "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-c", wrapped],
     "Database query failed"
