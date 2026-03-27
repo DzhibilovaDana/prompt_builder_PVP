@@ -166,15 +166,10 @@ curl http://localhost:3000/api/providers/health
 - `YANDEX_FOLDER_ID` — Folder ID в Yandex Cloud (если не передан `YANDEX_MODEL_URI`).
 - `YANDEX_MODEL_URI` — полный modelUri для YandexGPT (опционально).
 - `ANTHROPIC_API_KEY` — ключ Anthropic Claude API.
-- `DATABASE_URL` — URL PostgreSQL (основной режим работы БД).
+- `DATABASE_URL` — путь/URL к БД для следующего этапа (Prisma + PostgreSQL migration).
 
 Также можно хранить ключи в локальном JSON-файле `config/llm-keys.local.json` (файл добавлен в `.gitignore`).
 Шаблон: `config/llm-keys.local.example.json`.
-
-Приоритет ключей:
-1. `providerKeys` из запроса (`/api/generate` и `POST /api/providers/health`).
-2. `config/llm-keys.local.json`.
-3. ENV-переменные.
 
 
 ## Архитектура
