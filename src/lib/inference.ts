@@ -1,5 +1,5 @@
 // src/lib/inference.ts
-import { resolveProviderSecrets } from "@/lib/providerSecrets";
+import { type ProviderSecrets, resolveProviderSecrets } from "@/lib/providerSecrets";
 
 export type ProviderResult = {
   status: "ok" | "error" | "pending";
@@ -23,7 +23,7 @@ function normalizeText(value: unknown): string {
 
 async function callOpenAI(prompt: string, secrets: ProviderSecrets): Promise<ProviderResult> {
   const t0 = Date.now();
-  const { openaiApiKey } = resolveProviderSecrets();
+  const { openaiApiKey } = secrets;
 
   if (!openaiApiKey) {
     return {
@@ -61,9 +61,9 @@ async function callOpenAI(prompt: string, secrets: ProviderSecrets): Promise<Pro
   };
 }
 
-async function callDeepSeek(prompt: string): Promise<ProviderResult> {
+async function callDeepSeek(prompt: string, secrets: ProviderSecrets): Promise<ProviderResult> {
   const t0 = Date.now();
-  const { deepseekApiKey } = resolveProviderSecrets();
+  const { deepseekApiKey } = secrets;
 
   if (!deepseekApiKey) {
     return {
@@ -107,9 +107,9 @@ async function callDeepSeek(prompt: string): Promise<ProviderResult> {
   };
 }
 
-async function callYandexGPT(prompt: string): Promise<ProviderResult> {
+async function callYandexGPT(prompt: string, secrets: ProviderSecrets): Promise<ProviderResult> {
   const t0 = Date.now();
-  const { yandexApiKey, yandexFolderId, yandexModelUri } = resolveProviderSecrets();
+  const { yandexApiKey, yandexFolderId, yandexModelUri } = secrets;
 
   if (!yandexApiKey) {
     return {
@@ -162,9 +162,9 @@ async function callYandexGPT(prompt: string): Promise<ProviderResult> {
   };
 }
 
-async function callClaude(prompt: string): Promise<ProviderResult> {
+async function callClaude(prompt: string, secrets: ProviderSecrets): Promise<ProviderResult> {
   const t0 = Date.now();
-  const { anthropicApiKey } = resolveProviderSecrets();
+  const { anthropicApiKey } = secrets;
 
   if (!anthropicApiKey) {
     return {
@@ -223,24 +223,41 @@ async function callLocal(prompt: string): Promise<ProviderResult> {
   };
 }
 
-export async function generateWithProviders(providers: string[], prompt: string): Promise<Record<string, ProviderResult>> {
+export function getProvidersHealth(providerKeys?: ProviderSecrets): Record<string, { status: "ok" | "error"; configured: boolean; model: string }> {
+  const secrets = resolveProviderSecrets(providerKeys);
+
+  return {
+    openai: { status: secrets.openaiApiKey ? "ok" : "error", configured: Boolean(secrets.openaiApiKey), model: DEFAULT_OPENAI_MODEL },
+    deepseek: { status: secrets.deepseekApiKey ? "ok" : "error", configured: Boolean(secrets.deepseekApiKey), model: DEFAULT_DEEPSEEK_MODEL },
+    yandex: { status: secrets.yandexApiKey ? "ok" : "error", configured: Boolean(secrets.yandexApiKey), model: secrets.yandexModelUri || "yandexgpt-lite" },
+    claude: { status: secrets.anthropicApiKey ? "ok" : "error", configured: Boolean(secrets.anthropicApiKey), model: DEFAULT_CLAUDE_MODEL },
+    local: { status: "ok", configured: true, model: "local-llm" },
+  };
+}
+
+export async function generateWithProviders(
+  providers: string[],
+  prompt: string,
+  providerKeys?: ProviderSecrets
+): Promise<Record<string, ProviderResult>> {
+  const secrets = resolveProviderSecrets(providerKeys);
   const calls = providers.map(async (providerName) => {
     const provider = providerName.toLowerCase();
 
     if (provider === "openai" || provider === "chatgpt") {
-      return { provider: providerName, result: await callOpenAI(prompt) } as const;
+      return { provider: providerName, result: await callOpenAI(prompt, secrets) } as const;
     }
 
     if (provider === "deepseek") {
-      return { provider: providerName, result: await callDeepSeek(prompt) } as const;
+      return { provider: providerName, result: await callDeepSeek(prompt, secrets) } as const;
     }
 
     if (provider === "yandex" || provider === "yandexgpt") {
-      return { provider: providerName, result: await callYandexGPT(prompt) } as const;
+      return { provider: providerName, result: await callYandexGPT(prompt, secrets) } as const;
     }
 
     if (provider === "claude" || provider === "anthropic") {
-      return { provider: providerName, result: await callClaude(prompt) } as const;
+      return { provider: providerName, result: await callClaude(prompt, secrets) } as const;
     }
 
     if (provider === "local") {
