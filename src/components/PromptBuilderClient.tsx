@@ -74,8 +74,10 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
 
   // Provider selection state (defaults)
   const providersList: ProviderInfo[] = [
-    { id: "openai", label: "OpenAI (gpt-4o)", description: "OpenAI GPT-4o (mock)" },
-    { id: "claude", label: "Anthropic Claude", description: "Claude 3.5 (mock)" },
+    { id: "openai", label: "OpenAI", description: "OpenAI GPT (API key required)" },
+    { id: "deepseek", label: "DeepSeek", description: "DeepSeek Chat (API key required)" },
+    { id: "yandex", label: "YandexGPT", description: "Yandex Foundation Models (API key required)" },
+    { id: "claude", label: "Anthropic Claude", description: "Claude 3.5 (API key required)" },
     { id: "local", label: "Local LLM", description: "Локальная модель (mock)" },
   ];
   const [selectedProviders, setSelectedProviders] = useState<string[]>(["openai"]);
