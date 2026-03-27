@@ -18,6 +18,8 @@ interface SidebarProps {
   onProvidersChange?: (providers: string[]) => void;
   providerKeys?: ProviderKeys;
   onProviderKeysChange?: (keys: ProviderKeys) => void;
+  onSharePreset?: () => void;
+  presetCopied?: boolean;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -26,6 +28,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onProvidersChange,
   providerKeys,
   onProviderKeysChange,
+  onSharePreset,
+  presetCopied = false,
 }) => {
   const scrollToFavorites = () => {
     const el = document.getElementById("favorites-section");
@@ -166,6 +170,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ) : null}
               </div>
             </details>
+
+            {onSharePreset ? (
+              <div className="mt-3 rounded-lg border border-gray-200 bg-white p-2">
+                <button
+                  type="button"
+                  onClick={onSharePreset}
+                  className="w-full rounded-md border px-2 py-1.5 text-xs font-medium hover:bg-gray-50"
+                >
+                  {presetCopied ? "Ссылка на пресет скопирована" : "Поделиться пресетом ссылкой"}
+                </button>
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Ссылка включает выбранные параметры (индустрия, формат, эксперты, задача).
+                </p>
+              </div>
+            ) : null}
           </div>
         ) : (
           <>

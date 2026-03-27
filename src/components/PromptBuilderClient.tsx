@@ -1,7 +1,7 @@
 // src/components/PromptBuilderClient.tsx
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { usePromptBuilder } from "@/hooks/usePromptBuilder";
 import { useFavorites } from "@/hooks/useFavorites";
 import { FavoritesList } from "@/components/FavoritesList";
@@ -37,6 +37,66 @@ type ProviderKeys = {
   yandexFolderId?: string;
   yandexModelUri?: string;
   anthropicApiKey?: string;
+};
+
+type ShareablePreset = {
+  industry?: string;
+  experts?: string[];
+  format?: string;
+  subOption?: string;
+  userTask?: string;
+  extraValues?: Record<string, string | boolean>;
+};
+
+type QuickStartTemplate = {
+  id: string;
+  title: string;
+  task: string;
+  industry?: string;
+  experts?: string[];
+  format?: string;
+  subOption?: string;
+  extraValues?: Record<string, string | boolean>;
+};
+
+const PRESET_QUERY_PARAM = "preset";
+const SHARE_BASE_URL = "http://194.116.236.178:3000/";
+
+const toBase64 = (input: string): string => {
+  const bytes = new TextEncoder().encode(input);
+  let binary = "";
+  bytes.forEach((b) => {
+    binary += String.fromCharCode(b);
+  });
+  return btoa(binary);
+};
+
+const fromBase64 = (input: string): string => {
+  const binary = atob(input);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+};
+
+const toBase64Url = (input: string): string => {
+  const encoded = toBase64(input);
+  return encoded.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+};
+
+const fromBase64Url = (input: string): string => {
+  const normalized = input.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+  return fromBase64(padded);
+};
+
+const encodePreset = (preset: ShareablePreset): string => toBase64Url(JSON.stringify(preset));
+
+const decodePreset = (raw: string): ShareablePreset | null => {
+  try {
+    const parsed = JSON.parse(fromBase64Url(raw)) as ShareablePreset;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
 };
 
 function getErrorMessage(err: unknown): string {
@@ -95,6 +155,9 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
   const [genMode, setGenMode] = useState<"ok" | "degraded" | "error">("ok");
   const [generating, setGenerating] = useState(false);
   const [showTipsBanner, setShowTipsBanner] = useState(false);
+  const [presetCopied, setPresetCopied] = useState(false);
+  const appliedPresetRef = useRef(false);
+  const [pendingExtraValues, setPendingExtraValues] = useState<Record<string, string | boolean> | null>(null);
 
   useEffect(() => {
     try {
@@ -125,6 +188,117 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
       // ignore localStorage failures
     }
   }, [providerKeys]);
+
+  const quickStartTemplates = useMemo<QuickStartTemplate[]>(() => {
+    if (!industry) return [];
+    return [
+      {
+        id: "roadmap-30",
+        title: "План на 30 дней",
+        industry,
+        experts: currentIndustryExperts.slice(0, 2),
+        task: `Составь практический 30-дневный план улучшений для команды в индустрии "${industry}" с приоритетами, KPI и рисками.`,
+        format: "text",
+        extraValues: {
+          goal: "Получить практичный и реалистичный план внедрения на 30 дней",
+          context: `Команда работает в индустрии ${industry}.`,
+          text_structure: "Пошаговый план",
+          text_style: "Профессиональный",
+          text_length: "Развёрнуто",
+        },
+      },
+      {
+        id: "pilot-checklist",
+        title: "Чек-лист пилота",
+        industry,
+        experts: currentIndustryExperts.slice(0, 2),
+        task: `Подготовь чек-лист запуска пилота в индустрии "${industry}": шаги, ответственные, сроки и критерии успеха.`,
+        format: "text",
+        extraValues: {
+          goal: "Быстро подготовить план запуска пилота без пропуска критичных шагов",
+          text_structure: "Чек-лист",
+          text_style: "Деловой",
+          text_length: "Кратко",
+        },
+      },
+    ];
+  }, [currentIndustryExperts, industry]);
+
+  const applyQuickStart = (tpl: QuickStartTemplate) => {
+    if (tpl.industry) setIndustry(tpl.industry);
+    if (Array.isArray(tpl.experts) && tpl.experts.length > 0) {
+      setExperts(tpl.experts);
+    }
+    if (tpl.format && outputFormats.some((f) => f.id === tpl.format)) {
+      setFormat(tpl.format);
+    }
+    if (tpl.subOption) {
+      setSubOption(tpl.subOption);
+    }
+    if (tpl.extraValues) {
+      setPendingExtraValues(tpl.extraValues);
+    }
+    setUserTask(tpl.task);
+  };
+
+  const copySharePresetLink = async () => {
+    const preset: ShareablePreset = {
+      industry: industry || undefined,
+      experts: experts.length > 0 ? experts : undefined,
+      format: format || undefined,
+      subOption: subOption || undefined,
+      userTask: userTask.trim() || undefined,
+      extraValues: Object.fromEntries(
+        Object.entries(extraValues).filter(([, value]) => typeof value === "string" || typeof value === "boolean")
+      ) as Record<string, string | boolean>,
+    };
+    const encoded = encodePreset(preset);
+    const url = new URL(SHARE_BASE_URL);
+    url.searchParams.set(PRESET_QUERY_PARAM, encoded);
+
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      setPresetCopied(true);
+      setTimeout(() => setPresetCopied(false), 1500);
+    } catch {
+      alert(`Не удалось скопировать автоматически. Ссылка:\n${url.toString()}`);
+    }
+  };
+
+  useEffect(() => {
+    if (appliedPresetRef.current) return;
+    const url = new URL(window.location.href);
+    const encoded = url.searchParams.get(PRESET_QUERY_PARAM);
+    if (!encoded) return;
+
+    const parsed = decodePreset(encoded);
+    if (!parsed) return;
+
+    if (parsed.industry) setIndustry(parsed.industry);
+    if (parsed.format && outputFormats.some((f) => f.id === parsed.format)) {
+      setFormat(parsed.format);
+    }
+    if (parsed.subOption) setSubOption(parsed.subOption);
+    if (parsed.userTask) setUserTask(parsed.userTask);
+    if (Array.isArray(parsed.experts)) {
+      setExperts(parsed.experts.filter((x): x is string => typeof x === "string"));
+    }
+    if (parsed.extraValues && typeof parsed.extraValues === "object") {
+      setPendingExtraValues(parsed.extraValues);
+    }
+
+    appliedPresetRef.current = true;
+  }, [outputFormats, setExperts, setFormat, setIndustry, setSubOption, setUserTask]);
+
+  useEffect(() => {
+    if (!pendingExtraValues) return;
+    for (const [fieldId, value] of Object.entries(pendingExtraValues)) {
+      if (typeof value === "string" || typeof value === "boolean") {
+        setExtraValue(fieldId, value);
+      }
+    }
+    setPendingExtraValues(null);
+  }, [pendingExtraValues, setExtraValue]);
 
   const hideTipsBanner = () => {
     try {
@@ -303,6 +477,28 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
                 </div>
               </div>
             ) : null}
+ <details className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <summary className="cursor-pointer text-sm font-semibold text-emerald-900">
+                Быстрый старт по индустрии
+              </summary>
+              <div className="mt-3 space-y-2">
+                {industry ? (
+                  quickStartTemplates.map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => applyQuickStart(tpl)}
+                      className="block w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-left text-sm hover:bg-emerald-100"
+                    >
+                      <div className="font-medium">{tpl.title}</div>
+                      <div className="text-xs text-gray-600">{tpl.task}</div>
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-xs text-emerald-900">Сначала выберите индустрию — и здесь появятся шаблоны на 1 клик.</p>
+                )}
+              </div>
+            </details>
 
             <FormatSelector
               formats={config.formats}
@@ -408,6 +604,8 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
           onProvidersChange={setSelectedProviders}
           providerKeys={providerKeys}
           onProviderKeysChange={setProviderKeys}
+          onSharePreset={copySharePresetLink}
+          presetCopied={presetCopied}
         />
       </main>
 
