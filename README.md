@@ -67,19 +67,11 @@ npm run dev
 
 ### 3) Инициализация БД (PostgreSQL по умолчанию)
 
-Если задан `DATABASE_URL` вида `postgresql://...`, приложение работает в режиме PostgreSQL и `db:init` создаёт таблицы в Postgres:
+Приложение работает только с PostgreSQL. Перед запуском задайте `DATABASE_URL` и выполните инициализацию схемы:
 
 ```bash
 export DATABASE_URL=postgresql://prompt_builder:prompt_builder@localhost:5432/prompt_builder
 npm run db:init
-```
-
-Если `DATABASE_URL` не задан, используется fallback на SQLite (`data/db.sqlite`) для локального офлайн-режима.
-
-Для следующего этапа (MUP) можно мигрировать на Prisma + PostgreSQL:
-
-```bash
-npx prisma migrate dev
 ```
 
 ### 4) Основные команды
@@ -156,7 +148,7 @@ curl http://localhost:3000/api/providers/health
 
 ## Переменные окружения
 
-Для локального запуска обязательных переменных окружения нет (кроме случаев, когда нужен реальный вызов OpenAI API).
+Для локального запуска обязательно задать `DATABASE_URL` на PostgreSQL.
 
 Рекомендуемые переменные:
 
@@ -166,7 +158,7 @@ curl http://localhost:3000/api/providers/health
 - `YANDEX_FOLDER_ID` — Folder ID в Yandex Cloud (если не передан `YANDEX_MODEL_URI`).
 - `YANDEX_MODEL_URI` — полный modelUri для YandexGPT (опционально).
 - `ANTHROPIC_API_KEY` — ключ Anthropic Claude API.
-- `DATABASE_URL` — путь/URL к БД для следующего этапа (Prisma + PostgreSQL migration).
+- `DATABASE_URL` — URL подключения к PostgreSQL (обязателен).
 
 Также можно хранить ключи в локальном JSON-файле `config/llm-keys.local.json` (файл добавлен в `.gitignore`).
 Шаблон: `config/llm-keys.local.example.json`.
@@ -194,10 +186,20 @@ docker build -t prompt-builder .
 Запуск контейнера:
 
 ```bash
-docker run --rm -p 3000:3000 prompt-builder
+docker run --rm -p 3000:3000 \
+  -e DATABASE_URL=postgresql://prompt_builder:prompt_builder@host.docker.internal:5432/prompt_builder \
+  prompt-builder
 ```
 
-Либо через docker compose (с volume для сохранения `data/db.sqlite`):
+После старта контейнера и доступности PostgreSQL выполните инициализацию схемы:
+
+```bash
+docker run --rm \
+  -e DATABASE_URL=postgresql://prompt_builder:prompt_builder@host.docker.internal:5432/prompt_builder \
+  prompt-builder npm run db:init
+```
+
+Либо через docker compose:
 
 ```bash
 docker compose up --build
