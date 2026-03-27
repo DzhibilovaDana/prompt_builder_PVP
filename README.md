@@ -186,7 +186,17 @@ docker build -t prompt-builder .
 Запуск контейнера:
 
 ```bash
-docker run --rm -p 3000:3000 prompt-builder
+docker run --rm -p 3000:3000 \
+  -e DATABASE_URL=postgresql://prompt_builder:prompt_builder@host.docker.internal:5432/prompt_builder \
+  prompt-builder
+```
+
+После старта контейнера и доступности PostgreSQL выполните инициализацию схемы:
+
+```bash
+docker run --rm \
+  -e DATABASE_URL=postgresql://prompt_builder:prompt_builder@host.docker.internal:5432/prompt_builder \
+  prompt-builder npm run db:init
 ```
 
 Либо через docker compose:
