@@ -1,7 +1,7 @@
 // src/components/PromptBuilderClient.tsx
 "use client";
 
-import React, { Suspense, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import { usePromptBuilder } from "@/hooks/usePromptBuilder";
 import { useFavorites } from "@/hooks/useFavorites";
 import { FavoritesList } from "@/components/FavoritesList";
@@ -26,6 +26,8 @@ const ExclusionsRenderer = React.lazy(() => import("./ExclusionsRenderer").then(
 interface Props {
   config: AppConfig;
 }
+
+const TIPS_BANNER_STORAGE_KEY = "promptbuilder:tips:v1";
 
 function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -72,14 +74,33 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
 
   // Provider selection state (defaults)
   const providersList: ProviderInfo[] = [
-    { id: "openai", label: "OpenAI (gpt-4o)", description: "OpenAI GPT-4o (mock)" },
-    { id: "claude", label: "Anthropic Claude", description: "Claude 3.5 (mock)" },
+    { id: "openai", label: "OpenAI", description: "OpenAI GPT (API key required)" },
+    { id: "deepseek", label: "DeepSeek", description: "DeepSeek Chat (API key required)" },
+    { id: "yandex", label: "YandexGPT", description: "Yandex Foundation Models (API key required)" },
+    { id: "claude", label: "Anthropic Claude", description: "Claude 3.5 (API key required)" },
     { id: "local", label: "Local LLM", description: "Локальная модель (mock)" },
   ];
   const [selectedProviders, setSelectedProviders] = useState<string[]>(["openai"]);
   const [generateResults, setGenerateResults] = useState<Record<string, ProviderResult> | null>(null);
   const [genMode, setGenMode] = useState<"ok" | "degraded" | "error">("ok");
   const [generating, setGenerating] = useState(false);
+  const [showTipsBanner, setShowTipsBanner] = useState(false);
+
+  useEffect(() => {
+    try {
+      const hidden = localStorage.getItem(TIPS_BANNER_STORAGE_KEY) === "hidden";
+      if (!hidden) setShowTipsBanner(true);
+    } catch {
+      setShowTipsBanner(true);
+    }
+  }, []);
+
+  const hideTipsBanner = () => {
+    try {
+      localStorage.setItem(TIPS_BANNER_STORAGE_KEY, "hidden");
+    } catch {}
+    setShowTipsBanner(false);
+  };
 
   const handleExportMarkdown = () => {
     if (!generatedPrompt) return;
@@ -229,6 +250,28 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
         <section className="md:col-span-2">
           <div className="rounded-2xl border bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-xl font-semibold">Конструктор промпта</h2>
+
+            {showTipsBanner ? (
+              <div className="mb-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">С чего начать</p>
+                    <ul className="mt-1 list-disc pl-5">
+                      <li>Выберите формат и индустрию</li>
+                      <li>Заполните задачу и контекст</li>
+                      <li>Нажмите Generate или Send to LLM</li>
+                    </ul>
+                  </div>
+                  <button
+                    onClick={hideTipsBanner}
+                    className="rounded-md bg-white px-2 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+                    aria-label="Скрыть подсказки"
+                  >
+                    скрыть
+                  </button>
+                </div>
+              </div>
+            ) : null}
 
             <FormatSelector
               formats={config.formats}

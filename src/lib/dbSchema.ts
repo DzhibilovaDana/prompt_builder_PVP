@@ -144,10 +144,11 @@ export function getDatabaseEngine(): DbEngine {
 
 export function runPostgresJsonQuery<T>(sql: string): T {
   const databaseUrl = getPostgresUrl();
-  const wrapped = `WITH t AS (${sql}) SELECT COALESCE(json_agg(t), '[]'::json) FROM t;`;
-  const output = execFileSync("psql", [databaseUrl, "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-c", wrapped], {
-    encoding: "utf-8",
-  }).trim();
+  const wrapped = `WITH t AS (${normalizeSql(sql)}) SELECT COALESCE(json_agg(t), '[]'::json) FROM t;`;
+  const output = runPsql(
+    [databaseUrl, "-X", "-A", "-t", "-v", "ON_ERROR_STOP=1", "-c", wrapped],
+    "Database query failed"
+  );
 
   if (!output) {
     return [] as T;
@@ -158,10 +159,7 @@ export function runPostgresJsonQuery<T>(sql: string): T {
 
 export function runPostgresExec(sql: string): void {
   const databaseUrl = getPostgresUrl();
-  execFileSync("psql", [databaseUrl, "-X", "-v", "ON_ERROR_STOP=1", "-c", sql], {
-    encoding: "utf-8",
-    stdio: "pipe",
-  });
+  runPsql([databaseUrl, "-X", "-v", "ON_ERROR_STOP=1", "-c", sql], "Database command failed");
 }
 
 export function escapeSqlValue(value: string): string {

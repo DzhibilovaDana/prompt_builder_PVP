@@ -4,7 +4,7 @@ import { verifyUser, createSession } from "@/lib/userStore";
 
 function makeSessionCookie(token: string) {
   const maxAge = 60 * 60 * 24 * 30; // 30 days
-  const secure = process.env.NODE_ENV === "production" ? "Secure; " : "";
+  const secure = process.env.SESSION_COOKIE_SECURE === "true" ? "Secure; " : "";
   return `pb_session=${token}; HttpOnly; Path=/; Max-Age=${maxAge}; SameSite=Lax; ${secure}`;
 }
 
