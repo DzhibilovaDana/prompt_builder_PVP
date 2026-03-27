@@ -43,21 +43,19 @@ export async function createWorkspace(name: string, ownerUserId: number): Promis
 
   if (getDatabaseEngine() === "postgres") {
     const rows = runPostgresJsonQuery<Record<string, unknown>[]>(`
-      WITH created_ws AS (
-        INSERT INTO workspaces (name, owner_user_id)
-        VALUES ('${escapeSqlValue(normalizedName)}', ${ownerUserId})
-        RETURNING id, name, owner_user_id, created_at::text AS created_at
-      )
-      INSERT INTO workspace_members (workspace_id, user_id, role)
-      SELECT id, ${ownerUserId}, 'owner' FROM created_ws
-      ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = 'owner'
-      RETURNING (SELECT id FROM created_ws) AS id,
-                (SELECT name FROM created_ws) AS name,
-                (SELECT owner_user_id FROM created_ws) AS owner_user_id,
-                (SELECT created_at FROM created_ws) AS created_at;
+      INSERT INTO workspaces (name, owner_user_id)
+      VALUES ('${escapeSqlValue(normalizedName)}', ${ownerUserId})
+      RETURNING id, name, owner_user_id, created_at::text AS created_at
     `);
     const created = rows[0];
     if (!created) throw new Error("Failed to create workspace");
+
+    runPostgresExec(`
+      INSERT INTO workspace_members (workspace_id, user_id, role)
+      VALUES (${Number(created.id)}, ${ownerUserId}, 'owner')
+      ON CONFLICT (workspace_id, user_id) DO UPDATE SET role = 'owner';
+    `);
+
     return normalizeWorkspaceRow(created);
   }
 
