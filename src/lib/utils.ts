@@ -11,16 +11,29 @@ export function cn(...classes: (string | undefined | null | false)[]) {
 
 // lib/utils.ts
 export const isEmptySelection = (value: unknown): boolean => {
-  if (!value) return true;
-  if (typeof value === 'string') {
-    return value.trim() === '' || 
-           value === 'Выберите вариант' || 
-           value === 'Автоматический выбор (рекомендуется)' ||
-           value.includes('Система подберет');
+  if (value == null) return true;
+
+  if (typeof value === "string") {
+    const normalized = value.trim();
+    return (
+      normalized === "" ||
+      normalized === "Выберите вариант" ||
+      normalized === "Автоматический выбор (рекомендуется)" ||
+      normalized.includes("Система подберет")
+    );
   }
+
+  if (Array.isArray(value)) {
+    return value.length === 0 || value.every((entry) => isEmptySelection(entry));
+  }
+
+  if (typeof value === "object") {
+    return Object.keys(value).length === 0;
+  }
+
   return false;
 };
 
 export const hasUserMadeSelections = (extraValues: Record<string, unknown>): boolean => {
-  return Object.values(extraValues).some(value => !isEmptySelection(value));
+  return Object.values(extraValues).some((value) => !isEmptySelection(value));
 };
