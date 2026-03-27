@@ -1,6 +1,12 @@
 import { execFileSync } from "child_process";
 
 const databaseUrl = process.env.DATABASE_URL ?? "";
+
+if (!databaseUrl) {
+  console.log("DATABASE_URL is not set; skipping db:init");
+  process.exit(0);
+}
+
 const isPostgres = databaseUrl.startsWith("postgresql://") || databaseUrl.startsWith("postgres://");
 
 if (!isPostgres) {
