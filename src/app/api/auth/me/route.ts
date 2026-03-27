@@ -13,8 +13,8 @@ export async function GET(req: Request) {
     const user = await getUserBySession(token);
     if (!user) return NextResponse.json({ user: null });
     return NextResponse.json({ user: { id: user.id, email: user.email, name: user.name } });
-  } catch {
-    console.error("Session check failed");
+  } catch (e: unknown) {
+    console.error("Session check failed", e instanceof Error ? e.message : "unknown error");
     return NextResponse.json({ error: "Система временно недоступна" }, { status: 503 });
   }
 }

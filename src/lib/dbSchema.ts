@@ -19,7 +19,15 @@ function runPsql(args: string[], errorMessage: string): string {
       encoding: "utf-8",
       stdio: "pipe",
     }).trim();
-  } catch {
+  } catch (error: unknown) {
+    const detail =
+      error && typeof error === "object" && "stderr" in error
+        ? String((error as { stderr?: string }).stderr || "")
+            .split("\n")
+            .find((line) => line.trim().length > 0) || "unknown psql error"
+        : "unknown psql error";
+
+    console.error(`[db] ${errorMessage}: ${detail}`);
     throw new Error(errorMessage);
   }
 }

@@ -22,8 +22,8 @@ export async function POST(req: Request) {
     const res = NextResponse.json({ ok: true });
     res.headers.append("Set-Cookie", clearSessionCookie());
     return res;
-  } catch {
-    console.error("Logout failed");
+  } catch (e: unknown) {
+    console.error("Logout failed", e instanceof Error ? e.message : "unknown error");
     return NextResponse.json({ error: "Система временно недоступна" }, { status: 503 });
   }
 }
