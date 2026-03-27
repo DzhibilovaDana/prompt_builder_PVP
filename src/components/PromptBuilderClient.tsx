@@ -28,6 +28,16 @@ interface Props {
 }
 
 const TIPS_BANNER_STORAGE_KEY = "promptbuilder:tips:v1";
+const PROVIDER_KEYS_STORAGE_KEY = "promptbuilder:provider-keys:v1";
+
+type ProviderKeys = {
+  openaiApiKey?: string;
+  deepseekApiKey?: string;
+  yandexApiKey?: string;
+  yandexFolderId?: string;
+  yandexModelUri?: string;
+  anthropicApiKey?: string;
+};
 
 function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -78,9 +88,9 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
     { id: "deepseek", label: "DeepSeek", description: "DeepSeek Chat (API key required)" },
     { id: "yandex", label: "YandexGPT", description: "Yandex Foundation Models (API key required)" },
     { id: "claude", label: "Anthropic Claude", description: "Claude 3.5 (API key required)" },
-    { id: "local", label: "Local LLM", description: "Локальная модель (mock)" },
   ];
   const [selectedProviders, setSelectedProviders] = useState<string[]>(["openai"]);
+  const [providerKeys, setProviderKeys] = useState<ProviderKeys>({});
   const [generateResults, setGenerateResults] = useState<Record<string, ProviderResult> | null>(null);
   const [genMode, setGenMode] = useState<"ok" | "degraded" | "error">("ok");
   const [generating, setGenerating] = useState(false);
@@ -94,6 +104,27 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
       setShowTipsBanner(true);
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PROVIDER_KEYS_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as ProviderKeys;
+      if (parsed && typeof parsed === "object") {
+        setProviderKeys(parsed);
+      }
+    } catch {
+      // ignore invalid local cache
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PROVIDER_KEYS_STORAGE_KEY, JSON.stringify(providerKeys));
+    } catch {
+      // ignore localStorage failures
+    }
+  }, [providerKeys]);
 
   const hideTipsBanner = () => {
     try {
@@ -205,7 +236,7 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: p, providers: selectedProviders }),
+        body: JSON.stringify({ prompt: p, providers: selectedProviders, providerKeys }),
       });
 
       const data = await res.json();
@@ -375,6 +406,8 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
           availableProviders={providersList}
           selectedProviders={selectedProviders}
           onProvidersChange={setSelectedProviders}
+          providerKeys={providerKeys}
+          onProviderKeysChange={setProviderKeys}
         />
       </main>
 

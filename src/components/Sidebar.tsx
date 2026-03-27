@@ -2,18 +2,30 @@
 import React from "react";
 
 export type ProviderInfo = { id: string; label: string; description?: string };
+type ProviderKeys = {
+  openaiApiKey?: string;
+  deepseekApiKey?: string;
+  yandexApiKey?: string;
+  yandexFolderId?: string;
+  yandexModelUri?: string;
+  anthropicApiKey?: string;
+};
 
 interface SidebarProps {
   // optional props: if provided, Sidebar will render provider checkboxes
   availableProviders?: ProviderInfo[];
   selectedProviders?: string[];
   onProvidersChange?: (providers: string[]) => void;
+  providerKeys?: ProviderKeys;
+  onProviderKeysChange?: (keys: ProviderKeys) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   availableProviders,
   selectedProviders = [],
   onProvidersChange,
+  providerKeys,
+  onProviderKeysChange,
 }) => {
   const scrollToFavorites = () => {
     const el = document.getElementById("favorites-section");
@@ -28,6 +40,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     } else {
       onProvidersChange((selectedProviders || []).filter((p) => p !== id));
     }
+  };
+
+  const updateProviderKey = (key: keyof ProviderKeys, value: string) => {
+    if (!onProviderKeysChange) return;
+    onProviderKeysChange({
+      ...(providerKeys ?? {}),
+      [key]: value.trim() ? value : undefined,
+    });
   };
 
   return (
@@ -60,6 +80,92 @@ export const Sidebar: React.FC<SidebarProps> = ({
               );
             })}
             <p className="mt-2 text-xs text-gray-500">Выберите провайдеров для параллельной генерации.</p>
+
+            <details className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-2">
+              <summary className="cursor-pointer text-xs font-medium text-gray-700">
+                API ключи (локально, только для вашего браузера)
+              </summary>
+              <div className="mt-3 space-y-3">
+                {selectedProviders.includes("openai") ? (
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-gray-700" htmlFor="openaiApiKey">
+                      OpenAI API key
+                    </label>
+                    <input
+                      id="openaiApiKey"
+                      type="password"
+                      value={providerKeys?.openaiApiKey ?? ""}
+                      onChange={(e) => updateProviderKey("openaiApiKey", e.target.value)}
+                      className="w-full rounded-md border bg-white px-2 py-1.5 text-xs"
+                      placeholder="sk-..."
+                    />
+                    <p className="text-[11px] text-gray-500">OpenAI: Platform → API keys → Create new secret key.</p>
+                  </div>
+                ) : null}
+
+                {selectedProviders.includes("deepseek") ? (
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-gray-700" htmlFor="deepseekApiKey">
+                      DeepSeek API key
+                    </label>
+                    <input
+                      id="deepseekApiKey"
+                      type="password"
+                      value={providerKeys?.deepseekApiKey ?? ""}
+                      onChange={(e) => updateProviderKey("deepseekApiKey", e.target.value)}
+                      className="w-full rounded-md border bg-white px-2 py-1.5 text-xs"
+                      placeholder="sk-..."
+                    />
+                    <p className="text-[11px] text-gray-500">DeepSeek: Platform → API Keys → Create.</p>
+                  </div>
+                ) : null}
+
+                {selectedProviders.includes("yandex") ? (
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-gray-700" htmlFor="yandexApiKey">
+                      Yandex API key
+                    </label>
+                    <input
+                      id="yandexApiKey"
+                      type="password"
+                      value={providerKeys?.yandexApiKey ?? ""}
+                      onChange={(e) => updateProviderKey("yandexApiKey", e.target.value)}
+                      className="w-full rounded-md border bg-white px-2 py-1.5 text-xs"
+                      placeholder="AQVN..."
+                    />
+                    <label className="text-xs font-medium text-gray-700" htmlFor="yandexFolderId">
+                      Yandex Folder ID
+                    </label>
+                    <input
+                      id="yandexFolderId"
+                      type="text"
+                      value={providerKeys?.yandexFolderId ?? ""}
+                      onChange={(e) => updateProviderKey("yandexFolderId", e.target.value)}
+                      className="w-full rounded-md border bg-white px-2 py-1.5 text-xs"
+                      placeholder="b1g..."
+                    />
+                    <p className="text-[11px] text-gray-500">Yandex Cloud: сервисный аккаунт + ключ в IAM, Folder ID из консоли.</p>
+                  </div>
+                ) : null}
+
+                {selectedProviders.includes("claude") ? (
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-gray-700" htmlFor="anthropicApiKey">
+                      Anthropic API key
+                    </label>
+                    <input
+                      id="anthropicApiKey"
+                      type="password"
+                      value={providerKeys?.anthropicApiKey ?? ""}
+                      onChange={(e) => updateProviderKey("anthropicApiKey", e.target.value)}
+                      className="w-full rounded-md border bg-white px-2 py-1.5 text-xs"
+                      placeholder="sk-ant-..."
+                    />
+                    <p className="text-[11px] text-gray-500">Anthropic Console → API Keys → Create Key.</p>
+                  </div>
+                ) : null}
+              </div>
+            </details>
           </div>
         ) : (
           <>

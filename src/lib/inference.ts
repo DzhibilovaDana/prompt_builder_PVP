@@ -212,17 +212,6 @@ async function callClaude(prompt: string, secrets: ProviderSecrets): Promise<Pro
   };
 }
 
-async function callLocal(prompt: string): Promise<ProviderResult> {
-  const t0 = Date.now();
-  const summary = prompt.length > 160 ? prompt.slice(0, 160) + "…" : prompt;
-  return {
-    status: "ok",
-    output: `Local LLM — mock answer for prompt:\n${summary}`,
-    model: "local-llm",
-    timeMs: Date.now() - t0,
-  };
-}
-
 export function getProvidersHealth(providerKeys?: ProviderSecrets): Record<string, { status: "ok" | "error"; configured: boolean; model: string }> {
   const secrets = resolveProviderSecrets(providerKeys);
 
@@ -231,7 +220,6 @@ export function getProvidersHealth(providerKeys?: ProviderSecrets): Record<strin
     deepseek: { status: secrets.deepseekApiKey ? "ok" : "error", configured: Boolean(secrets.deepseekApiKey), model: DEFAULT_DEEPSEEK_MODEL },
     yandex: { status: secrets.yandexApiKey ? "ok" : "error", configured: Boolean(secrets.yandexApiKey), model: secrets.yandexModelUri || "yandexgpt-lite" },
     claude: { status: secrets.anthropicApiKey ? "ok" : "error", configured: Boolean(secrets.anthropicApiKey), model: DEFAULT_CLAUDE_MODEL },
-    local: { status: "ok", configured: true, model: "local-llm" },
   };
 }
 
@@ -258,10 +246,6 @@ export async function generateWithProviders(
 
     if (provider === "claude" || provider === "anthropic") {
       return { provider: providerName, result: await callClaude(prompt, secrets) } as const;
-    }
-
-    if (provider === "local") {
-      return { provider: providerName, result: await callLocal(prompt) } as const;
     }
 
     return {
