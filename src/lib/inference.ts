@@ -1,60 +1,5 @@
 // src/lib/inference.ts
-/**
- * Простая mock-реализация InferenceAdapter'ов для MVP.
- * - Поддерживаем провайдеры: 'openai', 'claude', 'local'
- * - Возвращаем { status, output?, error?, model?, timeMs }
- *
- * В продакшне здесь подключите реальные SDK (openai/anthropic и т.д.)
- */
-
-function sleep(ms: number) {
-  return new Promise((res) => setTimeout(res, ms));
-}
-
-async function callOpenAI(prompt: string): Promise<ProviderResult> {
-  const t0 = Date.now();
-  await sleep(700); // simulate latency
-  const summary = prompt.length > 180 ? prompt.slice(0, 180) + "…" : prompt;
-  return {
-    status: "ok",
-    output: `OpenAI (gpt-4o) — mock answer for prompt:\n${summary}`,
-    model: "gpt-4o",
-    timeMs: Date.now() - t0,
-  };
-}
-
-async function callClaude(prompt: string): Promise<ProviderResult> {
-  const t0 = Date.now();
-  await sleep(1100);
-  const summary = prompt.length > 200 ? prompt.slice(0, 200) + "…" : prompt;
-  return {
-    status: "ok",
-    output: `Anthropic Claude — mock answer for prompt:\n${summary}`,
-    model: "claude-3.5",
-    timeMs: Date.now() - t0,
-  };
-}
-
-async function callLocal(prompt: string): Promise<ProviderResult> {
-  const t0 = Date.now();
-  await sleep(1200);
-  const fail = Math.random() < 0.3;
-  if (fail) {
-    return {
-      status: "error",
-      error: "Local model crashed / OOM (simulated)",
-      model: "local-llm",
-      timeMs: Date.now() - t0,
-    };
-  }
-  const summary = prompt.length > 160 ? prompt.slice(0, 160) + "…" : prompt;
-  return {
-    status: "ok",
-    output: `Local LLM — mock answer for prompt:\n${summary}`,
-    model: "local-llm",
-    timeMs: Date.now() - t0,
-  };
-}
+import { resolveProviderSecrets } from "@/lib/providerSecrets";
 
 export type ProviderResult = {
   status: "ok" | "error" | "pending";
@@ -64,23 +9,249 @@ export type ProviderResult = {
   timeMs?: number;
 };
 
-export async function generateWithProviders(providers: string[], prompt: string): Promise<Record<string, ProviderResult>> {
-  const calls = providers.map(async (p) => {
-    if (p === "openai") {
-      return { provider: p, result: await callOpenAI(prompt) } as const;
-    }
-    if (p === "claude") {
-      return { provider: p, result: await callClaude(prompt) } as const;
-    }
-    if (p === "local") {
-      return { provider: p, result: await callLocal(prompt) } as const;
-    }
-    // fallback for unknown provider
+const DEFAULT_OPENAI_MODEL = "gpt-4.1-mini";
+const DEFAULT_DEEPSEEK_MODEL = "deepseek-chat";
+const DEFAULT_CLAUDE_MODEL = "claude-3-5-sonnet-latest";
+const DEFAULT_YANDEX_MODEL_URI = "gpt://<folder-id>/yandexgpt-lite/latest";
+
+function normalizeText(value: unknown): string {
+  if (typeof value === "string" && value.trim()) {
+    return value;
+  }
+  return JSON.stringify(value);
+}
+
+async function callOpenAI(prompt: string): Promise<ProviderResult> {
+  const t0 = Date.now();
+  const { openaiApiKey } = resolveProviderSecrets();
+
+  if (!openaiApiKey) {
     return {
-      provider: p,
+      status: "error",
+      error: "OPENAI_API_KEY (or openaiApiKey in config/llm-keys.local.json) is missing",
+      model: DEFAULT_OPENAI_MODEL,
+      timeMs: Date.now() - t0,
+    };
+  }
+
+  const res = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${openaiApiKey}`,
+    },
+    body: JSON.stringify({ model: DEFAULT_OPENAI_MODEL, input: prompt }),
+  });
+
+  if (!res.ok) {
+    return {
+      status: "error",
+      error: `OpenAI error: ${await res.text()}`,
+      model: DEFAULT_OPENAI_MODEL,
+      timeMs: Date.now() - t0,
+    };
+  }
+
+  const data = (await res.json()) as { output_text?: unknown };
+  return {
+    status: "ok",
+    output: normalizeText(data.output_text ?? data),
+    model: DEFAULT_OPENAI_MODEL,
+    timeMs: Date.now() - t0,
+  };
+}
+
+async function callDeepSeek(prompt: string): Promise<ProviderResult> {
+  const t0 = Date.now();
+  const { deepseekApiKey } = resolveProviderSecrets();
+
+  if (!deepseekApiKey) {
+    return {
+      status: "error",
+      error: "DEEPSEEK_API_KEY (or deepseekApiKey in config/llm-keys.local.json) is missing",
+      model: DEFAULT_DEEPSEEK_MODEL,
+      timeMs: Date.now() - t0,
+    };
+  }
+
+  const res = await fetch("https://api.deepseek.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${deepseekApiKey}`,
+    },
+    body: JSON.stringify({
+      model: DEFAULT_DEEPSEEK_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+    }),
+  });
+
+  if (!res.ok) {
+    return {
+      status: "error",
+      error: `DeepSeek error: ${await res.text()}`,
+      model: DEFAULT_DEEPSEEK_MODEL,
+      timeMs: Date.now() - t0,
+    };
+  }
+
+  const data = (await res.json()) as { choices?: Array<{ message?: { content?: unknown } }> };
+  const output = data.choices?.[0]?.message?.content;
+
+  return {
+    status: "ok",
+    output: normalizeText(output ?? data),
+    model: DEFAULT_DEEPSEEK_MODEL,
+    timeMs: Date.now() - t0,
+  };
+}
+
+async function callYandexGPT(prompt: string): Promise<ProviderResult> {
+  const t0 = Date.now();
+  const { yandexApiKey, yandexFolderId, yandexModelUri } = resolveProviderSecrets();
+
+  if (!yandexApiKey) {
+    return {
+      status: "error",
+      error: "YANDEX_API_KEY (or yandexApiKey in config/llm-keys.local.json) is missing",
+      model: "yandexgpt-lite",
+      timeMs: Date.now() - t0,
+    };
+  }
+
+  const modelUri = yandexModelUri || (yandexFolderId ? `gpt://${yandexFolderId}/yandexgpt-lite/latest` : DEFAULT_YANDEX_MODEL_URI);
+
+  const res = await fetch("https://llm.api.cloud.yandex.net/foundationModels/v1/completion", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Api-Key ${yandexApiKey}`,
+    },
+    body: JSON.stringify({
+      modelUri,
+      completionOptions: {
+        stream: false,
+        temperature: 0.2,
+        maxTokens: "2000",
+      },
+      messages: [{ role: "user", text: prompt }],
+    }),
+  });
+
+  if (!res.ok) {
+    return {
+      status: "error",
+      error: `YandexGPT error: ${await res.text()}`,
+      model: modelUri,
+      timeMs: Date.now() - t0,
+    };
+  }
+
+  const data = (await res.json()) as {
+    result?: { alternatives?: Array<{ message?: { text?: unknown } }> };
+  };
+
+  const output = data.result?.alternatives?.[0]?.message?.text;
+
+  return {
+    status: "ok",
+    output: normalizeText(output ?? data),
+    model: modelUri,
+    timeMs: Date.now() - t0,
+  };
+}
+
+async function callClaude(prompt: string): Promise<ProviderResult> {
+  const t0 = Date.now();
+  const { anthropicApiKey } = resolveProviderSecrets();
+
+  if (!anthropicApiKey) {
+    return {
+      status: "error",
+      error: "ANTHROPIC_API_KEY (or anthropicApiKey in config/llm-keys.local.json) is missing",
+      model: DEFAULT_CLAUDE_MODEL,
+      timeMs: Date.now() - t0,
+    };
+  }
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": anthropicApiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: DEFAULT_CLAUDE_MODEL,
+      max_tokens: 1500,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+
+  if (!res.ok) {
+    return {
+      status: "error",
+      error: `Claude error: ${await res.text()}`,
+      model: DEFAULT_CLAUDE_MODEL,
+      timeMs: Date.now() - t0,
+    };
+  }
+
+  const data = (await res.json()) as {
+    content?: Array<{ type?: string; text?: unknown }>;
+  };
+
+  const output = data.content?.find((part) => part.type === "text")?.text;
+
+  return {
+    status: "ok",
+    output: normalizeText(output ?? data),
+    model: DEFAULT_CLAUDE_MODEL,
+    timeMs: Date.now() - t0,
+  };
+}
+
+async function callLocal(prompt: string): Promise<ProviderResult> {
+  const t0 = Date.now();
+  const summary = prompt.length > 160 ? prompt.slice(0, 160) + "…" : prompt;
+  return {
+    status: "ok",
+    output: `Local LLM — mock answer for prompt:\n${summary}`,
+    model: "local-llm",
+    timeMs: Date.now() - t0,
+  };
+}
+
+export async function generateWithProviders(providers: string[], prompt: string): Promise<Record<string, ProviderResult>> {
+  const calls = providers.map(async (providerName) => {
+    const provider = providerName.toLowerCase();
+
+    if (provider === "openai" || provider === "chatgpt") {
+      return { provider: providerName, result: await callOpenAI(prompt) } as const;
+    }
+
+    if (provider === "deepseek") {
+      return { provider: providerName, result: await callDeepSeek(prompt) } as const;
+    }
+
+    if (provider === "yandex" || provider === "yandexgpt") {
+      return { provider: providerName, result: await callYandexGPT(prompt) } as const;
+    }
+
+    if (provider === "claude" || provider === "anthropic") {
+      return { provider: providerName, result: await callClaude(prompt) } as const;
+    }
+
+    if (provider === "local") {
+      return { provider: providerName, result: await callLocal(prompt) } as const;
+    }
+
+    return {
+      provider: providerName,
       result: {
         status: "error",
-        error: `Unknown provider "${p}"`,
+        error: `Unknown provider "${providerName}"`,
         model: "unknown",
         timeMs: 0,
       } as ProviderResult,
@@ -89,8 +260,10 @@ export async function generateWithProviders(providers: string[], prompt: string)
 
   const settled = await Promise.all(calls);
   const map: Record<string, ProviderResult> = {};
-  for (const s of settled) {
-    map[s.provider] = s.result;
+
+  for (const item of settled) {
+    map[item.provider] = item.result;
   }
+
   return map;
 }
