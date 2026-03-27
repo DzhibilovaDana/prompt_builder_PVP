@@ -8,7 +8,7 @@ import OnboardingModal from "./OnboardingModal";
  * - если вы поменяете текст/шаги, просто поменяйте версию ключа,
  *   чтобы старым пользователям онбординг показался снова.
  */
-const ONBOARDING_STORAGE_KEY = "promptbuilder:onboarding:v1";
+const ONBOARDING_STORAGE_KEY = "promptbuilder:onboarding:v2";
 
 type Props = {
   children: React.ReactNode;

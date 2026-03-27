@@ -27,8 +27,8 @@ export async function POST(req: Request) {
     const res = NextResponse.json({ ok: true, user: { id: user.id, email: user.email, name: user.name } });
     res.headers.append("Set-Cookie", makeSessionCookie(token));
     return res;
-  } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : "Login error";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    console.error("Login failed");
+    return NextResponse.json({ error: "Система временно недоступна" }, { status: 503 });
   }
 }
