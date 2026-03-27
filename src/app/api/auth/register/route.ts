@@ -19,7 +19,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "email and password (>=6) required" }, { status: 400 });
     }
 
-    // check exists
     const existing = await getUserByEmail(email);
     if (existing) {
       return NextResponse.json({ error: "User already exists" }, { status: 409 });
@@ -32,7 +31,7 @@ export async function POST(req: Request) {
     res.headers.append("Set-Cookie", makeSessionCookie(token));
     return res;
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : "Register error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Register failed", e);
+    return NextResponse.json({ error: "Система временно недоступна" }, { status: 503 });
   }
 }
