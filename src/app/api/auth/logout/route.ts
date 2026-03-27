@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { deleteSession } from "@/lib/userStore";
 
 function clearSessionCookie() {
-  const secure = process.env.NODE_ENV === "production" ? "Secure; " : "";
+  const secure = process.env.SESSION_COOKIE_SECURE === "true" ? "Secure; " : "";
   return `pb_session=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax; ${secure}`;
 }
 
