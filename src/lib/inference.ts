@@ -21,7 +21,7 @@ function normalizeText(value: unknown): string {
   return JSON.stringify(value);
 }
 
-async function callOpenAI(prompt: string): Promise<ProviderResult> {
+async function callOpenAI(prompt: string, secrets: ProviderSecrets): Promise<ProviderResult> {
   const t0 = Date.now();
   const { openaiApiKey } = resolveProviderSecrets();
 

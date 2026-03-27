@@ -20,11 +20,11 @@
 
 ### MUP (следующий продуктовый этап)
 
-- Авторизация и командные workspace.
-- Хранение prompt-шаблонов и избранного в БД (вместо только localStorage).
-- Версионирование шаблонов и аудит изменений.
-- Интеграции с LLM API (в т.ч. прямой запуск prompt из UI).
-- Метрики качества prompt (оценка, сравнение, A/B).
+- Авторизация и командные workspace. ✅
+- Хранение prompt-шаблонов и избранного в БД (вместо только localStorage). ✅
+- Версионирование шаблонов и аудит изменений. ✅
+- Интеграции с LLM API (в т.ч. прямой запуск prompt из UI). ✅
+- Метрики качества prompt (оценка, сравнение, A/B). ✅
 
 ## Структура репозитория
 
@@ -45,6 +45,7 @@
 
 - Node.js **20.x** (рекомендовано для локального запуска и CI).
 - npm **10+**.
+- PostgreSQL **14+** (рекомендуемый основной режим БД).
 - Docker (опционально, для контейнерного запуска).
 
 ## Быстрый старт
@@ -64,13 +65,16 @@ npm run dev
 - Приложение доступно на `http://localhost:3000`.
 - API роуты доступны по префиксу `http://localhost:3000/api/*`.
 
-### 3) Инициализация локальной SQLite БД
+### 3) Инициализация БД (PostgreSQL по умолчанию)
 
-В текущей версии используется локальная SQLite БД `data/db.sqlite` и скрипт инициализации:
+Если задан `DATABASE_URL` вида `postgresql://...`, приложение работает в режиме PostgreSQL и `db:init` создаёт таблицы в Postgres:
 
 ```bash
+export DATABASE_URL=postgresql://prompt_builder:prompt_builder@localhost:5432/prompt_builder
 npm run db:init
 ```
+
+Если `DATABASE_URL` не задан, используется fallback на SQLite (`data/db.sqlite`) для локального офлайн-режима.
 
 Для следующего этапа (MUP) можно мигрировать на Prisma + PostgreSQL:
 
@@ -95,10 +99,23 @@ npm start      # запуск production-сервера
 - `GET /api/prompts` — список сохранённых промптов.
 - `POST /api/prompts` — создать промпт (`title`, `content`).
 - `GET /api/prompts/:id` — получить промпт по id.
+- `PUT /api/prompts/:id` — обновить промпт (создаёт новую версию).
 - `DELETE /api/prompts/:id` — удалить промпт.
+- `GET /api/prompts/:id/versions` — история версий.
+- `POST /api/prompts/:id/versions` — откат к конкретной версии (`versionNo`).
+- `GET /api/prompts/:id/metrics` — метрики качества и последние запуски.
+- `POST /api/metrics/prompts/:id/score` — ручная оценка качества (`score` 1..5).
+- `GET /api/workspaces` — список рабочих пространств пользователя.
+- `POST /api/workspaces` — создать workspace.
+- `POST /api/workspaces/:id/members` — добавить/обновить участника (role: owner/admin/editor/viewer).
+- `GET /api/ab-tests` — список A/B тестов.
+- `POST /api/ab-tests` — создать A/B тест с вариантами.
+- `POST /api/ab-tests/:id/result` — зафиксировать outcome варианта.
 - `POST /api/generate` — генерация ответа по prompt.
-  - Если задан `OPENAI_API_KEY`, выполняется запрос к OpenAI Responses API.
-  - Если ключа нет, возвращается mock-ответ для офлайн-демо.
+  - Поддерживает мульти-провайдерный режим через `providers: []`.
+  - Поддерживает внешние ключи через `providerKeys` в JSON body (без сохранения на сервере).
+- `GET /api/providers/health` — проверка, какие провайдеры сконфигурированы.
+- `POST /api/providers/health` — проверка провайдеров с ключами, переданными в `providerKeys`.
 
 Примеры:
 
@@ -118,6 +135,23 @@ curl http://localhost:3000/api/prompts
 curl -X POST http://localhost:3000/api/generate \
   -H "Content-Type: application/json" \
   -d '{"prompt":"Составь краткий roadmap релиза"}'
+
+# Мульти-провайдерная генерация с внешними ключами (JSON)
+curl -X POST http://localhost:3000/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt":"Сделай 5 идей для маркетинга",
+    "providers":["chatgpt","deepseek","yandexgpt"],
+    "providerKeys":{
+      "openaiApiKey":"sk-...",
+      "deepseekApiKey":"sk-...",
+      "yandexApiKey":"AQVN...",
+      "yandexFolderId":"b1g..."
+    }
+  }'
+
+# Health-check подключений провайдеров
+curl http://localhost:3000/api/providers/health
 ```
 
 ## Переменные окружения
@@ -248,3 +282,28 @@ Pipeline выполняет:
 ### Прочее
 - `src/app/page.tsx` — теперь server component: `readConfig()` на сервере и передача `config` в `PromptBuilderClient`.
 - Мелкие исправления доступности, disabled-атрибутов, keyboard-ux.
+
+## Аудит по User Story Map (актуализация)
+
+Статусы ниже соответствуют текущей реализации в репозитории.
+
+### Реализовано
+- **US-M1 (Must):** выбор формата + релевантные поля в форме.
+- **US-M2 (Must):** выбор индустрии/экспертов из конфигурации.
+- **US-M3 (Must):** мультивыбор экспертов без дублей.
+- **US-M4 (Must):** генерация итогового prompt + копирование.
+- **US-S1 (Should):** подсказки к полям (`hint` в конфиге, рендер в UI).
+- **US-S2 (Should):** избранное (локально + синхронизация с сервером).
+- **US-S3 (Should):** онбординг-модалка с провайдером состояния.
+- **US-C1 (Could):** мульти-LLM отправка и статусы по провайдерам.
+- **US-C4 (Could):** шаринг через ссылку на серверный prompt.
+- **US-C5 (Could):** веса экспертов (слайдер/влияние на итоговый prompt).
+
+### Частично / не завершено
+- **US-C2 (Could):** быстрый старт шаблонов по индустрии — есть заготовки/дефолтные промпты, но не полноценный UX «1 клик, 3+ шаблона на индустрию».
+- **US-C3 (Could):** экспорт Markdown/HTML есть, но нет полноценного режима Plain+preview как отдельного пользовательского сценария.
+
+### Won’t (по карте — намеренно не делаем в MVP)
+- **US-W1:** цепочки промптов с внешними инструментами.
+- **US-W2:** полноценный офлайн-режим со сложной синхронизацией.
+- **US-W3:** real-time совместное редактирование курсорами.
