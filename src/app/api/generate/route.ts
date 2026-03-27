@@ -1,6 +1,9 @@
 // src/app/api/generate/route.ts
 import { NextResponse } from "next/server";
 import { generateWithProviders } from "@/lib/inference";
+import { sanitizeProviderSecrets } from "@/lib/providerSecrets";
+import { getUserIdFromRequest } from "@/lib/auth";
+import { logPromptRun } from "@/lib/metricsStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,6 +75,9 @@ export async function POST(req: Request) {
     if (Array.isArray(body.providers)) {
       const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
       const providers = body.providers.filter((p): p is string => typeof p === "string");
+      const providerKeys = sanitizeProviderSecrets(body.providerKeys);
+      const promptId = typeof body.promptId === "number" && Number.isInteger(body.promptId) && body.promptId > 0 ? body.promptId : null;
+      const userId = await getUserIdFromRequest(req);
 
       if (!prompt) {
         return NextResponse.json({ error: "prompt required" }, { status: 400 });
@@ -85,8 +91,11 @@ export async function POST(req: Request) {
         });
       }
 
-      const results = await generateWithProviders(providers, prompt);
-      return NextResponse.json({ mode: "ok", results });
+      const results = await generateWithProviders(providers, prompt, providerKeys);
+      await Promise.all(
+        Object.entries(results).map(([provider, result]) => logPromptRun(promptId, userId ?? null, provider, result))
+      );
+      return NextResponse.json({ mode: "ok", results, source: "request.providerKeys/env/local-file" });
     }
 
     const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";

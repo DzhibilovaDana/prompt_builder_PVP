@@ -1,31 +1,9 @@
 // src/lib/userStore.ts
 import crypto from "crypto";
-import { execFileSync } from "child_process";
-import { DB_PATH, ensureDatabaseSchema } from "@/lib/dbSchema";
-
-function ensureDbFile(): void {
-  ensureDatabaseSchema();
-}
-
-function runSql<T>(sql: string, args: string[] = []): T {
-  ensureDbFile();
-  const output = execFileSync("sqlite3", ["-json", DB_PATH, sql, ...args], {
-    encoding: "utf-8",
-  }).trim();
-
-  if (!output) {
-    return [] as T;
-  }
-
-  return JSON.parse(output) as T;
-}
-
-function escape(value: string): string {
-  return value.replace(/'/g, "''");
-}
+import { ensureDatabaseSchema } from "@/lib/dbSchema";
+import { escapeSql, nowExpression, runExec, runJsonQuery } from "@/lib/sql";
 
 function hashPassword(password: string, salt: string): string {
-  // scryptSync returns a Buffer; derive 64 bytes
   const key = crypto.scryptSync(password, salt, 64);
   return key.toString("hex");
 }
@@ -48,33 +26,92 @@ export type UserRecord = {
   created_at: string;
 };
 
-export async function createUser(email: string, password: string, name?: string | null): Promise<UserRecord> {
-  const emailEsc = escape(email.trim().toLowerCase());
-  const nm = name ? escape(String(name)) : "";
+function normalizeUserRow(row: Record<string, unknown>): UserRecord {
+  return {
+    id: Number(row.id),
+    email: String(row.email ?? ""),
+    name: row.name == null ? null : String(row.name),
+    password_hash: String(row.password_hash ?? ""),
+    salt: String(row.salt ?? ""),
+    created_at: String(row.created_at ?? ""),
+  };
+}
 
-  // generate salt
+async function ensurePersonalWorkspace(userId: number, userName?: string | null): Promise<void> {
+  const name = userName?.trim() ? `${userName.trim()} Workspace` : `User ${userId} Workspace`;
+
+  const existing = runJsonQuery<Array<{ id: number }>>(
+    `SELECT id FROM workspaces WHERE owner_user_id = ${userId} ORDER BY id ASC LIMIT 1;`
+  );
+
+  if (existing[0]?.id) {
+    const workspaceId = Number(existing[0].id);
+    runExec(`INSERT INTO workspace_members (workspace_id, user_id, role, created_at)
+      VALUES (${workspaceId}, ${userId}, 'owner', ${nowExpression()})
+      ON CONFLICT (workspace_id, user_id) DO NOTHING;`);
+    return;
+  }
+
+  const rows = runJsonQuery<Array<{ id: number }>>(
+    `INSERT INTO workspaces (name, owner_user_id, created_at, updated_at)
+      VALUES ('${escapeSql(name)}', ${userId}, ${nowExpression()}, ${nowExpression()})
+      RETURNING id;`
+  );
+
+  const workspaceId = Number(rows[0]?.id ?? 0);
+  if (workspaceId > 0) {
+    runExec(`INSERT INTO workspace_members (workspace_id, user_id, role, created_at)
+      VALUES (${workspaceId}, ${userId}, 'owner', ${nowExpression()})
+      ON CONFLICT (workspace_id, user_id) DO NOTHING;`);
+  }
+}
+
+export async function createUser(email: string, password: string, name?: string | null): Promise<UserRecord> {
+  await ensureDatabaseSchema();
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedName = name ? String(name) : null;
   const salt = crypto.randomBytes(16).toString("hex");
   const password_hash = hashPassword(password, salt);
 
-  runSql<unknown>(
-    `INSERT INTO users (email, password_hash, salt, name, created_at) VALUES ('${emailEsc}', '${password_hash}', '${salt}', ${nm ? `'${nm}'` : "NULL"}, datetime('now'));`
+  const e = escapeSql(normalizedEmail);
+  const n = normalizedName ? `'${escapeSql(normalizedName)}'` : "NULL";
+
+  const rows = runJsonQuery<Record<string, unknown>[]>(
+    `INSERT INTO users (email, password_hash, salt, name, created_at)
+      VALUES ('${e}', '${password_hash}', '${salt}', ${n}, ${nowExpression()})
+      RETURNING id, email, name, password_hash, salt, created_at`
   );
 
-  const rows = runSql<UserRecord[]>("SELECT id, email, name, password_hash, salt, created_at FROM users ORDER BY id DESC LIMIT 1;");
   const created = rows[0];
   if (!created) throw new Error("Failed to create user");
-  return created;
+  const user = normalizeUserRow(created);
+  await ensurePersonalWorkspace(user.id, user.name);
+  return user;
 }
 
 export async function getUserByEmail(email: string): Promise<UserRecord | null> {
-  const e = escape(String(email).trim().toLowerCase());
-  const rows = runSql<UserRecord[]>(`SELECT id, email, name, password_hash, salt, created_at FROM users WHERE email = '${e}' LIMIT 1;`);
-  return rows[0] ?? null;
+  await ensureDatabaseSchema();
+
+  const rows = runJsonQuery<Record<string, unknown>[]>(
+    `SELECT id, email, name, password_hash, salt, created_at
+      FROM users
+      WHERE email = '${escapeSql(email.trim().toLowerCase())}'
+      LIMIT 1`
+  );
+  return rows[0] ? normalizeUserRow(rows[0]) : null;
 }
 
 export async function getUserById(id: number): Promise<UserRecord | null> {
-  const rows = runSql<UserRecord[]>(`SELECT id, email, name, password_hash, salt, created_at FROM users WHERE id = ${id} LIMIT 1;`);
-  return rows[0] ?? null;
+  await ensureDatabaseSchema();
+
+  const rows = runJsonQuery<Record<string, unknown>[]>(
+    `SELECT id, email, name, password_hash, salt, created_at
+      FROM users
+      WHERE id = ${id}
+      LIMIT 1`
+  );
+  return rows[0] ? normalizeUserRow(rows[0]) : null;
 }
 
 export async function verifyUser(email: string, password: string): Promise<UserRecord | null> {
@@ -87,32 +124,40 @@ export async function verifyUser(email: string, password: string): Promise<UserR
   return null;
 }
 
-// sessions
 export async function createSession(userId: number): Promise<string> {
+  await ensureDatabaseSchema();
   const token = crypto.randomBytes(32).toString("hex");
-  const t = escape(token);
-  runSql<unknown>(`INSERT INTO sessions (token, user_id, created_at) VALUES ('${t}', ${userId}, datetime('now'));`);
+
+  runExec(`INSERT INTO sessions (token, user_id, created_at) VALUES ('${escapeSql(token)}', ${userId}, ${nowExpression()});`);
   return token;
 }
 
 export async function getUserBySession(token: string): Promise<UserRecord | null> {
-  const t = escape(token);
-  const rows = runSql<SessionUserRow[]>(`SELECT u.id, u.email, u.name, u.password_hash, u.salt, u.created_at
-    FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.token = '${t}' LIMIT 1;`);
+  await ensureDatabaseSchema();
+
+  const rows = runJsonQuery<SessionUserRow[]>(
+    `SELECT u.id, u.email, u.name, u.password_hash, u.salt, u.created_at
+      FROM sessions s
+      JOIN users u ON s.user_id = u.id
+      WHERE s.token = '${escapeSql(token)}'
+      LIMIT 1`
+  );
+
   const r = rows[0];
   if (!r) return null;
+
   return {
-    id: r.id,
-    email: r.email,
-    name: r.name,
-    password_hash: r.password_hash,
-    salt: r.salt,
-    created_at: r.created_at,
+    id: Number(r.id),
+    email: String(r.email),
+    name: r.name == null ? null : String(r.name),
+    password_hash: String(r.password_hash),
+    salt: String(r.salt),
+    created_at: String(r.created_at),
   };
 }
 
 export async function deleteSession(token: string): Promise<boolean> {
-  const t = escape(token);
-  runSql<unknown>(`DELETE FROM sessions WHERE token = '${t}';`);
+  await ensureDatabaseSchema();
+  runExec(`DELETE FROM sessions WHERE token = '${escapeSql(token)}';`);
   return true;
 }

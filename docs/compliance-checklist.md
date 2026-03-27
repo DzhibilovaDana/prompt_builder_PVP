@@ -24,3 +24,33 @@
 ## Реализованный функционал
 - [x] В README зафиксированы планы MVP и MUP.
 - [ ] Факт соответствия roadmap/защите прототипа проверяется по вашим исходным планам и демо.
+
+## User Story Map (статус на текущий момент)
+
+### Must / Should
+- [x] US-M1: выбор формата + релевантные поля.
+- [x] US-M2: выбор индустрии/эксперта из конфигурации.
+- [x] US-M3: выбор нескольких экспертов без дублей.
+- [x] US-M4: генерация итогового промпта и копирование.
+- [x] US-S1: подсказки к полям.
+- [x] US-S2: избранное (добавление/удаление/повторное использование).
+- [x] US-S3: онбординг.
+
+### Could (backend)
+- [x] US-C1: мульти-LLM отправка (параллельно) + статус/ошибки по провайдерам.
+- [~] US-C2: быстрый старт шаблонами (частично, требует фронтенд UX).
+- [~] US-C3: формат/вывод Markdown/HTML/Plain (частично, backend готов, нужен UX preview).
+- [x] US-C4: шаринг ссылкой.
+- [x] US-C5: веса экспертов.
+
+### MUP backend tails
+- [x] Workspace model: `workspaces`, `workspace_members`, API `/api/workspaces*`.
+- [x] Versioning + rollback: `prompt_versions`, API `/api/prompts/:id/versions`, `/rollback`.
+- [x] Audit trail: `audit_logs`, API `/api/audit`.
+- [x] Prompt quality metrics: `prompt_runs`, `prompt_scores`, API `/api/prompts/:id/metrics`.
+- [x] A/B experiments: `ab_tests`, `ab_variants`, API `/api/ab-tests*`.
+
+### Won’t
+- [ ] US-W1: цепочки промптов с внешними инструментами (намеренно не реализуется в MVP).
+- [ ] US-W2: офлайн-режим с последующей синхронизацией (намеренно не реализуется в MVP).
+- [ ] US-W3: совместное редактирование real-time (намеренно не реализуется в MVP).
