@@ -10,6 +10,22 @@ function getPostgresUrl(): string {
   return url;
 }
 
+function normalizeSql(sql: string): string {
+  return sql.trim().replace(/;+\s*$/, "");
+}
+
+function runPsql(args: string[], errorPrefix: string): string {
+  try {
+    return execFileSync("psql", args, {
+      encoding: "utf-8",
+      stdio: "pipe",
+    }).trim();
+  } catch (error) {
+    const details = error instanceof Error ? error.message : String(error);
+    throw new Error(`${errorPrefix}: ${details}`);
+  }
+}
+
 export async function ensureDatabaseSchema(): Promise<void> {
   const databaseUrl = getPostgresUrl();
   const sql = `
