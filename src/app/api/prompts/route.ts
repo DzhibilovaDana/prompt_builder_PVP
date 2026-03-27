@@ -1,7 +1,7 @@
-// src/app/api/prompts/route.ts
 import { NextResponse } from "next/server";
 import { createPrompt, listPrompts, type PromptRecord } from "@/lib/promptStore";
-import { getUserBySession } from "@/lib/userStore";
+import { getRequestUser } from "@/lib/auth";
+import { ensurePersonalWorkspace } from "@/lib/workspaceStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,25 +9,24 @@ export const dynamic = "force-dynamic";
 function toPublic(item: PromptRecord) {
   return {
     id: item.id,
+    workspaceId: item.workspace_id,
     title: item.title,
     prompt: item.content,
     createdAt: item.created_at,
+    updatedAt: item.updated_at,
   };
-}
-
-async function getUserIdFromReq(req: Request): Promise<number | null> {
-  const cookie = req.headers.get("cookie") || "";
-  const m = cookie.match(/pb_session=([A-Fa-f0-9]+);?/);
-  const token = m ? m[1] : null;
-  if (!token) return null;
-  const user = await getUserBySession(token);
-  return user ? user.id : null;
 }
 
 export async function GET(req: Request) {
   try {
-    const userId = await getUserIdFromReq(req);
-    const prompts = await listPrompts(userId ?? undefined);
+    const user = await getRequestUser(req);
+    const workspaceIdRaw = new URL(req.url).searchParams.get("workspaceId");
+    const workspaceId = workspaceIdRaw ? Number(workspaceIdRaw) : null;
+
+    const prompts = await listPrompts(
+      user?.id ?? undefined,
+      workspaceId && Number.isInteger(workspaceId) && workspaceId > 0 ? workspaceId : undefined,
+    );
     const mapped = Array.isArray(prompts) ? prompts.map(toPublic) : [];
     return NextResponse.json(mapped);
   } catch (e: unknown) {
@@ -51,8 +50,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "title and prompt (or content) are required" }, { status: 400 });
     }
 
-    const userId = await getUserIdFromReq(req);
-    const created = await createPrompt(title, content, userId ?? null);
+    const user = await getRequestUser(req);
+    let workspaceId = typeof body.workspaceId === "number" && Number.isInteger(body.workspaceId) ? body.workspaceId : null;
+
+    if (user?.id && !workspaceId) {
+      const workspace = await ensurePersonalWorkspace(user.id, user.name);
+      workspaceId = workspace.id;
+    }
+
+    const created = await createPrompt(title, content, user?.id ?? null, workspaceId ?? null);
     return NextResponse.json(toPublic(created), { status: 201 });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Create prompt error";

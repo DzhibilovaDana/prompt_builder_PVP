@@ -1,6 +1,6 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
-RUN apk add --no-cache sqlite
+RUN apk add --no-cache sqlite postgresql-client
 COPY package*.json ./
 RUN npm ci
 COPY . .
@@ -8,7 +8,7 @@ RUN npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
-RUN apk add --no-cache sqlite
+RUN apk add --no-cache sqlite postgresql-client
 ENV NODE_ENV=production
 ENV PORT=3000
 COPY --from=builder /app/package*.json ./
