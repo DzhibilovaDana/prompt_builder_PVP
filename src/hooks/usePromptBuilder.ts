@@ -449,14 +449,55 @@ export const usePromptBuilder = (config: AppConfig | null) => {
   }, [config, format, subOption, industry, extraValues, refine, buildRolePrompt, exclusions, buildFormatInstruction, userTask, outputFormats]);
 
   const handleCopy = useCallback(async (text?: string) => {
+    const fallbackCopy = (value: string) => {
+      const textarea = document.createElement("textarea");
+      textarea.value = value;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      textarea.style.pointerEvents = "none";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const copiedWithExecCommand = document.execCommand("copy");
+      document.body.removeChild(textarea);
+      return copiedWithExecCommand;
+    };
+
     try {
       const toCopy = typeof text === "string" ? text : generatedPrompt || "";
       if (!toCopy) return;
-      await navigator.clipboard.writeText(toCopy);
+
+      let copiedSuccessfully = false;
+
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(toCopy);
+        copiedSuccessfully = true;
+      } else if (typeof document !== "undefined") {
+        copiedSuccessfully = fallbackCopy(toCopy);
+      }
+
+      if (!copiedSuccessfully) {
+        throw new Error("Clipboard unavailable");
+      }
+
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch (e) {
       console.error("Ошибка при копировании:", e);
+      try {
+        const toCopy = typeof text === "string" ? text : generatedPrompt || "";
+        if (!toCopy) return;
+        const copiedWithFallback = fallbackCopy(toCopy);
+        if (copiedWithFallback) {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+          return;
+        }
+      } catch {
+        // no-op
+      }
+      alert("Не удалось скопировать автоматически. Попробуйте выделить текст и скопировать вручную.");
     }
   }, [generatedPrompt]);
 
