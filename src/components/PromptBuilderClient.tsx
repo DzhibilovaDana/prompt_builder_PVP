@@ -216,6 +216,7 @@ export const PromptBuilderClient: React.FC<Props> = ({ config }) => {
         format: "text",
         extraValues: {
           goal: "Быстро подготовить план запуска пилота без пропуска критичных шагов",
+          context: `Команда запускает пилот в индустрии ${industry}.`,
           text_structure: "Чек-лист",
           text_style: "Деловой",
           text_length: "Кратко",
