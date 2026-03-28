@@ -22,6 +22,36 @@ export default function PromptDetailPage() {
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState<string>("");
   const [meta, setMeta] = useState<string>("");
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [copiedResult, setCopiedResult] = useState(false);
+
+  const copyText = async (text: string, onCopied: (value: boolean) => void) => {
+    if (!text.trim()) return;
+
+    const resetFlag = () => {
+      setTimeout(() => onCopied(false), 1500);
+    };
+
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "absolute";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+      }
+      onCopied(true);
+      resetFlag();
+    } catch {
+      alert("Не удалось скопировать автоматически. Скопируйте текст вручную.");
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -89,14 +119,31 @@ export default function PromptDetailPage() {
       </div>
 
       <section className="rounded-2xl border bg-white p-4 shadow-sm">
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-gray-500">Промпт</h2>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Промпт</h2>
+          <button
+            onClick={() => void copyText(prompt.content, setCopiedPrompt)}
+            className="rounded-lg border px-2 py-1 text-xs hover:bg-gray-50"
+          >
+            {copiedPrompt ? "Скопировано ✓" : "Копировать"}
+          </button>
+        </div>
         <pre className="whitespace-pre-wrap text-sm text-gray-800">{prompt.content}</pre>
       </section>
 
       <section className="rounded-2xl border bg-white p-4 shadow-sm">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Результат генерации</h2>
-          {meta && <span className="text-xs text-gray-500">{meta}</span>}
+          <div className="flex items-center gap-3">
+            {meta && <span className="text-xs text-gray-500">{meta}</span>}
+            <button
+              onClick={() => void copyText(result, setCopiedResult)}
+              disabled={!result}
+              className="rounded-lg border px-2 py-1 text-xs hover:bg-gray-50 disabled:cursor-not-allowed disabled:text-gray-400"
+            >
+              {copiedResult ? "Скопировано ✓" : "Копировать"}
+            </button>
+          </div>
         </div>
         <pre className="min-h-24 whitespace-pre-wrap text-sm text-gray-800">
           {result || "Нажмите «Сгенерировать ответ», чтобы получить результат."}
