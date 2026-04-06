@@ -21,6 +21,8 @@ COPY --from=builder /app/next.config.ts ./next.config.ts
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 COPY --from=builder /app/postcss.config.mjs ./postcss.config.mjs
 COPY --from=builder /app/components.json ./components.json
-RUN npm run db:init
+COPY --from=builder /app/scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
+RUN chmod +x ./scripts/docker-entrypoint.sh
 EXPOSE 3000
+ENTRYPOINT ["./scripts/docker-entrypoint.sh"]
 CMD ["npm", "start"]

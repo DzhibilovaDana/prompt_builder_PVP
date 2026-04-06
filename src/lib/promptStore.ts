@@ -7,6 +7,9 @@ export type PromptRecord = {
   workspace_id: number | null;
   title: string;
   content: string;
+  category: string | null;
+  tags: string[];
+  metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 };
@@ -54,16 +57,45 @@ function runSqlite<T>(sql: string): T {
 }
 
 function normalizePromptRow(row: Record<string, unknown>): PromptRecord {
+  const tagsRaw = Array.isArray(row.tags_json) ? row.tags_json : [];
+  const metadataRaw = row.metadata_json && typeof row.metadata_json === "object" ? row.metadata_json : {};
   return {
     id: Number(row.id),
     user_id: row.user_id == null ? null : Number(row.user_id),
     workspace_id: row.workspace_id == null ? null : Number(row.workspace_id),
     title: String(row.title ?? ""),
     content: String(row.content ?? ""),
+    category: row.category == null ? null : String(row.category),
+    tags: tagsRaw.map((tag) => String(tag)).filter(Boolean),
+    metadata: metadataRaw as Record<string, unknown>,
     created_at: String(row.created_at ?? ""),
     updated_at: String(row.updated_at ?? row.created_at ?? ""),
   };
 }
+
+function normalizeTags(input?: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  const uniq = new Set<string>();
+  for (const value of input) {
+    const tag = String(value ?? "").trim();
+    if (tag) uniq.add(tag.toLowerCase());
+  }
+  return Array.from(uniq);
+}
+
+function normalizeMetadata(input?: unknown): Record<string, unknown> {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  return input as Record<string, unknown>;
+}
+
+export type PromptFilters = {
+  workspaceId?: number | null;
+  query?: string | null;
+  category?: string | null;
+  tags?: string[] | null;
+  limit?: number | null;
+  offset?: number | null;
+};
 
 function normalizeVersionRow(row: Record<string, unknown>): PromptVersionRecord {
   return {
@@ -75,6 +107,16 @@ function normalizeVersionRow(row: Record<string, unknown>): PromptVersionRecord 
     author_user_id: row.author_user_id == null ? null : Number(row.author_user_id),
     created_at: String(row.created_at ?? ""),
   };
+}
+
+function toSafeJsonbLiteral(value: unknown): string {
+  return `'${escapeSqlValue(JSON.stringify(value))}'::jsonb`;
+}
+
+function parseNonNegativeInt(value: unknown, fallback: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(0, Math.floor(n));
 }
 
 function normalizeRunRow(row: Record<string, unknown>): PromptRunRecord {
@@ -166,27 +208,54 @@ export async function addAuditLog(params: {
   `);
 }
 
-export async function listPrompts(userId?: number | null, workspaceId?: number | null): Promise<PromptRecord[]> {
+export async function listPrompts(userId?: number | null, filters?: PromptFilters): Promise<PromptRecord[]> {
   await ensureDatabaseSchema();
 
   const hasUser = typeof userId === "number" && Number.isInteger(userId) && userId > 0;
   if (!hasUser) return [];
 
-  const where = workspaceId && Number.isInteger(workspaceId) && workspaceId > 0 ? `user_id = ${userId} AND workspace_id = ${workspaceId}` : `user_id = ${userId}`;
+  const limit = Math.min(100, Math.max(1, parseNonNegativeInt(filters?.limit ?? 50, 50)));
+  const offset = parseNonNegativeInt(filters?.offset ?? 0, 0);
+  const clauses = [`user_id = ${userId}`];
+  if (filters?.workspaceId && Number.isInteger(filters.workspaceId) && filters.workspaceId > 0) {
+    clauses.push(`workspace_id = ${filters.workspaceId}`);
+  }
+  if (filters?.query) {
+    const normalizedQuery = escapeSqlValue(filters.query.trim());
+    if (normalizedQuery) {
+      clauses.push(
+        `to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(content, '')) @@ plainto_tsquery('simple', '${normalizedQuery}')`
+      );
+    }
+  }
+  if (filters?.category) {
+    clauses.push(`category = '${escapeSqlValue(filters.category)}'`);
+  }
+  const normalizedTags = normalizeTags(filters?.tags);
+  if (normalizedTags.length > 0) {
+    clauses.push(`tags_json @> ${toSafeJsonbLiteral(normalizedTags)}`);
+  }
+  const where = clauses.join(" AND ");
 
   if (getDatabaseEngine() === "postgres") {
     const rows = runPostgresJsonQuery<Record<string, unknown>[]>(
-      `SELECT id, user_id, workspace_id, title, content, created_at::text AS created_at, updated_at::text AS updated_at
+      `SELECT id, user_id, workspace_id, title, content, category, tags_json, metadata_json, created_at::text AS created_at, updated_at::text AS updated_at
        FROM prompts
        WHERE ${where}
-       ORDER BY created_at DESC, id DESC`
+       ORDER BY created_at DESC, id DESC
+       LIMIT ${limit}
+       OFFSET ${offset}`
     );
     return rows.map((row) => normalizePromptRow(row));
   }
 
-  return runSqlite<PromptRecord[]>(
-    `SELECT id, user_id, workspace_id, title, content, created_at, updated_at FROM prompts WHERE ${where} ORDER BY datetime(created_at) DESC, id DESC;`
+  const rows = runSqlite<Record<string, unknown>[]>(
+    `SELECT id, user_id, workspace_id, title, content, category, tags_json, metadata_json, created_at, updated_at
+     FROM prompts WHERE ${where}
+     ORDER BY datetime(created_at) DESC, id DESC
+     LIMIT ${limit} OFFSET ${offset};`
   );
+  return rows.map((row) => normalizePromptRow(row));
 }
 
 export async function getPromptById(id: number): Promise<PromptRecord | null> {
@@ -194,7 +263,7 @@ export async function getPromptById(id: number): Promise<PromptRecord | null> {
 
   if (getDatabaseEngine() === "postgres") {
     const rows = runPostgresJsonQuery<Record<string, unknown>[]>(
-      `SELECT id, user_id, workspace_id, title, content, created_at::text AS created_at, updated_at::text AS updated_at
+      `SELECT id, user_id, workspace_id, title, content, category, tags_json, metadata_json, created_at::text AS created_at, updated_at::text AS updated_at
        FROM prompts
        WHERE id = ${id}
        LIMIT 1`
@@ -202,38 +271,48 @@ export async function getPromptById(id: number): Promise<PromptRecord | null> {
     return rows[0] ? normalizePromptRow(rows[0]) : null;
   }
 
-  const rows = runSqlite<PromptRecord[]>(
-    `SELECT id, user_id, workspace_id, title, content, created_at, updated_at FROM prompts WHERE id = ${id} LIMIT 1;`
+  const rows = runSqlite<Record<string, unknown>[]>(
+    `SELECT id, user_id, workspace_id, title, content, category, tags_json, metadata_json, created_at, updated_at FROM prompts WHERE id = ${id} LIMIT 1;`
   );
-  return rows[0] ?? null;
+  return rows[0] ? normalizePromptRow(rows[0]) : null;
 }
 
-export async function createPrompt(title: string, content: string, userId?: number | null, workspaceId?: number | null): Promise<PromptRecord> {
+export async function createPrompt(
+  title: string,
+  content: string,
+  userId?: number | null,
+  workspaceId?: number | null,
+  options?: { category?: string | null; tags?: string[]; metadata?: Record<string, unknown> },
+): Promise<PromptRecord> {
   await ensureDatabaseSchema();
 
   const t = escapeSqlValue(title);
   const c = escapeSqlValue(content);
   const uid = typeof userId === "number" && Number.isInteger(userId) ? `${userId}` : "NULL";
   const wid = typeof workspaceId === "number" && Number.isInteger(workspaceId) ? `${workspaceId}` : "NULL";
+  const category = options?.category?.trim() ? `'${escapeSqlValue(options.category.trim())}'` : "NULL";
+  const tags = toSafeJsonbLiteral(normalizeTags(options?.tags));
+  const metadata = toSafeJsonbLiteral(normalizeMetadata(options?.metadata));
 
   let created: PromptRecord | null = null;
 
   if (getDatabaseEngine() === "postgres") {
     const rows = runPostgresJsonQuery<Record<string, unknown>[]>(
-      `INSERT INTO prompts (user_id, workspace_id, title, content)
-       VALUES (${uid}, ${wid}, '${t}', '${c}')
-       RETURNING id, user_id, workspace_id, title, content, created_at::text AS created_at, updated_at::text AS updated_at`
+      `INSERT INTO prompts (user_id, workspace_id, title, content, category, tags_json, metadata_json)
+       VALUES (${uid}, ${wid}, '${t}', '${c}', ${category}, ${tags}, ${metadata})
+       RETURNING id, user_id, workspace_id, title, content, category, tags_json, metadata_json, created_at::text AS created_at, updated_at::text AS updated_at`
     );
     created = rows[0] ? normalizePromptRow(rows[0]) : null;
   } else {
     runSqlite<unknown>(
-      `INSERT INTO prompts (user_id, workspace_id, title, content, created_at, updated_at) VALUES (${uid}, ${wid}, '${t}', '${c}', datetime('now'), datetime('now'));`
+      `INSERT INTO prompts (user_id, workspace_id, title, content, category, tags_json, metadata_json, created_at, updated_at)
+       VALUES (${uid}, ${wid}, '${t}', '${c}', ${category}, '${escapeSqlValue(JSON.stringify(normalizeTags(options?.tags)))}', '${escapeSqlValue(JSON.stringify(normalizeMetadata(options?.metadata)))}', datetime('now'), datetime('now'));`
     );
 
-    const rows = runSqlite<PromptRecord[]>(
-      "SELECT id, user_id, workspace_id, title, content, created_at, updated_at FROM prompts ORDER BY id DESC LIMIT 1;"
+    const rows = runSqlite<Record<string, unknown>[]>(
+      "SELECT id, user_id, workspace_id, title, content, category, tags_json, metadata_json, created_at, updated_at FROM prompts ORDER BY id DESC LIMIT 1;"
     );
-    created = rows[0] ?? null;
+    created = rows[0] ? normalizePromptRow(rows[0]) : null;
   }
 
   if (!created) {
@@ -253,32 +332,46 @@ export async function createPrompt(title: string, content: string, userId?: numb
   return created;
 }
 
-export async function updatePrompt(id: number, title: string, content: string, actorUserId?: number | null): Promise<PromptRecord | null> {
+export async function updatePrompt(
+  id: number,
+  title: string,
+  content: string,
+  actorUserId?: number | null,
+  options?: { category?: string | null; tags?: string[]; metadata?: Record<string, unknown> },
+): Promise<PromptRecord | null> {
   await ensureDatabaseSchema();
   const existing = await getPromptById(id);
   if (!existing) return null;
 
   const t = escapeSqlValue(title);
   const c = escapeSqlValue(content);
+  const category = options?.category?.trim() ? `'${escapeSqlValue(options.category.trim())}'` : "NULL";
+  const tagsJson = toSafeJsonbLiteral(normalizeTags(options?.tags));
+  const metadataJson = toSafeJsonbLiteral(normalizeMetadata(options?.metadata));
 
   let updated: PromptRecord | null = null;
 
   if (getDatabaseEngine() === "postgres") {
     const rows = runPostgresJsonQuery<Record<string, unknown>[]>(`
       UPDATE prompts
-      SET title = '${t}', content = '${c}', updated_at = NOW()
+      SET title = '${t}', content = '${c}', category = ${category}, tags_json = ${tagsJson}, metadata_json = ${metadataJson}, updated_at = NOW()
       WHERE id = ${id}
-      RETURNING id, user_id, workspace_id, title, content, created_at::text AS created_at, updated_at::text AS updated_at
+      RETURNING id, user_id, workspace_id, title, content, category, tags_json, metadata_json, created_at::text AS created_at, updated_at::text AS updated_at
     `);
     updated = rows[0] ? normalizePromptRow(rows[0]) : null;
   } else {
     runSqlite<unknown>(
-      `UPDATE prompts SET title = '${t}', content = '${c}', updated_at = datetime('now') WHERE id = ${id};`
+      `UPDATE prompts
+       SET title = '${t}', content = '${c}', category = ${category},
+           tags_json = '${escapeSqlValue(JSON.stringify(normalizeTags(options?.tags)))}',
+           metadata_json = '${escapeSqlValue(JSON.stringify(normalizeMetadata(options?.metadata)))}',
+           updated_at = datetime('now')
+       WHERE id = ${id};`
     );
-    const rows = runSqlite<PromptRecord[]>(
-      `SELECT id, user_id, workspace_id, title, content, created_at, updated_at FROM prompts WHERE id = ${id} LIMIT 1;`
+    const rows = runSqlite<Record<string, unknown>[]>(
+      `SELECT id, user_id, workspace_id, title, content, category, tags_json, metadata_json, created_at, updated_at FROM prompts WHERE id = ${id} LIMIT 1;`
     );
-    updated = rows[0] ?? null;
+    updated = rows[0] ? normalizePromptRow(rows[0]) : null;
   }
 
   if (!updated) return null;

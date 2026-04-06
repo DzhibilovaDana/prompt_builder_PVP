@@ -137,9 +137,15 @@ export async function ensureDatabaseSchema(): Promise<void> {
 
     ALTER TABLE prompts ADD COLUMN IF NOT EXISTS workspace_id INTEGER NULL REFERENCES workspaces(id) ON DELETE SET NULL;
     ALTER TABLE prompts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+    ALTER TABLE prompts ADD COLUMN IF NOT EXISTS category TEXT;
+    ALTER TABLE prompts ADD COLUMN IF NOT EXISTS tags_json JSONB NOT NULL DEFAULT '[]'::jsonb;
+    ALTER TABLE prompts ADD COLUMN IF NOT EXISTS metadata_json JSONB NOT NULL DEFAULT '{}'::jsonb;
 
     CREATE INDEX IF NOT EXISTS idx_prompts_user_created ON prompts(user_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_prompts_workspace_created ON prompts(workspace_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_prompts_category ON prompts(category);
+    CREATE INDEX IF NOT EXISTS idx_prompts_title_search ON prompts USING GIN (to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(content, '')));
+    CREATE INDEX IF NOT EXISTS idx_prompts_tags_json ON prompts USING GIN (tags_json);
     CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_workspace_members_user ON workspace_members(user_id);
     CREATE INDEX IF NOT EXISTS idx_prompt_versions_prompt ON prompt_versions(prompt_id, version_no DESC);

@@ -6,12 +6,32 @@ import { canWriteWorkspace } from "@/lib/workspaceStore";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function normalizePayload(body: Record<string, unknown>) {
+  const categoryRaw = typeof body.category === "string" ? body.category.trim() : "";
+  const category = categoryRaw ? categoryRaw.slice(0, 80) : null;
+  const tags = Array.isArray(body.tags)
+    ? Array.from(
+        new Set(
+          body.tags
+            .map((tag) => String(tag).trim().toLowerCase())
+            .filter(Boolean)
+            .slice(0, 20),
+        ),
+      )
+    : [];
+  const metadata = body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata) ? (body.metadata as Record<string, unknown>) : {};
+  return { category, tags, metadata };
+}
+
 function toPublic(item: PromptRecord) {
   return {
     id: item.id,
     workspaceId: item.workspace_id,
     title: item.title,
     prompt: item.content,
+    category: item.category,
+    tags: item.tags,
+    metadata: item.metadata,
     createdAt: item.created_at,
     updatedAt: item.updated_at,
   };
@@ -64,6 +84,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
         : typeof body.prompt === "string"
           ? body.prompt.trim()
           : "";
+    const { category, tags, metadata } = normalizePayload(body);
 
     if (!title || !content) {
       return NextResponse.json({ error: "title and prompt (or content) are required" }, { status: 400 });
@@ -76,7 +97,7 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
     if (!allowed) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
     const user = await getRequestUser(req);
-    const updated = await updatePrompt(promptId, title, content, user?.id ?? null);
+    const updated = await updatePrompt(promptId, title, content, user?.id ?? null, { category, tags, metadata });
     if (!updated) {
       return NextResponse.json({ error: "not found" }, { status: 404 });
     }
