@@ -32,6 +32,18 @@ const BLOCKED_UA_PARTS = [
   "go-http-client",
 ];
 
+const BLOCKED_HEADER_NAMES = [
+  "x-middleware-subrequest",
+  "x-now-route-matches",
+  "x-matched-path",
+  "x-invoke-path",
+  "x-invoke-query",
+  "x-invoke-status",
+  "x-invoke-error",
+  "x-invoke-output",
+  "x-vercel-sc-headers",
+];
+
 const MAX_BODY_BYTES = 64 * 1024;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 90;
@@ -64,8 +76,12 @@ function hasBlockedUserAgent(userAgent: string): boolean {
   return BLOCKED_UA_PARTS.some((part) => normalized.includes(part));
 }
 
+function hasBlockedInternalHeaders(req: NextRequest): boolean {
+  return BLOCKED_HEADER_NAMES.some((header) => req.headers.has(header));
+}
+
 function requiresApiToken(pathname: string): boolean {
-  return pathname.startsWith("/api/generate") || pathname.startsWith("/api/providers/health");
+  return pathname.startsWith("/api/generate");
 }
 
 export function middleware(req: NextRequest): NextResponse {
@@ -76,6 +92,10 @@ export function middleware(req: NextRequest): NextResponse {
   }
 
   if (hasBlockedPath(pathname)) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
+  if (hasBlockedInternalHeaders(req)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
