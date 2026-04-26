@@ -12,6 +12,9 @@ export default function NewPromptPage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
+  const [category, setCategory] = useState("");
+  const [tagsInput, setTagsInput] = useState("");
+  const [metadata, setMetadata] = useState('{"purpose":"","topic":""}');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,10 +24,19 @@ export default function NewPromptPage() {
     setError(null);
 
     try {
+      const tags = tagsInput
+        .split(",")
+        .map((item) => item.trim().toLowerCase())
+        .filter(Boolean);
+      let metadataJson: Record<string, unknown> = {};
+      if (metadata.trim()) {
+        metadataJson = JSON.parse(metadata) as Record<string, unknown>;
+      }
+
       const res = await fetch("/api/prompts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content }),
+        body: JSON.stringify({ title, content, category, tags, metadata: metadataJson }),
       });
 
       if (!res.ok) {
@@ -53,24 +65,27 @@ export default function NewPromptPage() {
       <form onSubmit={onSubmit} className="space-y-4 rounded-2xl border bg-white p-5 shadow-sm">
         <div className="space-y-1">
           <label className="text-sm font-medium">Название</label>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-xl border px-3 py-2"
-            placeholder="Например: План релиза MVP"
-            required
-          />
+          <input value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-xl border px-3 py-2" placeholder="Например: План релиза MVP" required />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Категория</label>
+          <input value={category} onChange={(e) => setCategory(e.target.value)} className="w-full rounded-xl border px-3 py-2" placeholder="Например: Маркетинг" />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Теги (через запятую)</label>
+          <input value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} className="w-full rounded-xl border px-3 py-2" placeholder="seo, b2b, launch" />
         </div>
 
         <div className="space-y-1">
           <label className="text-sm font-medium">Содержимое промпта</label>
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            className="min-h-40 w-full rounded-xl border px-3 py-2"
-            placeholder="Вставьте текст промпта..."
-            required
-          />
+          <textarea value={content} onChange={(e) => setContent(e.target.value)} className="min-h-40 w-full rounded-xl border px-3 py-2" placeholder="Вставьте текст промпта..." required />
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Metadata (JSON)</label>
+          <textarea value={metadata} onChange={(e) => setMetadata(e.target.value)} className="min-h-24 w-full rounded-xl border px-3 py-2 font-mono text-xs" />
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
