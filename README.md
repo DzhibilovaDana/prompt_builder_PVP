@@ -126,6 +126,7 @@ curl http://localhost:3000/api/prompts
 # Генерация (mock или OpenAI)
 curl -X POST http://localhost:3000/api/generate \
   -H "Content-Type: application/json" \
+  -H "x-api-token: ${PB_API_TOKEN}" \
   -d '{"prompt":"Составь краткий roadmap релиза"}'
 
 # Мульти-провайдерная генерация с внешними ключами (JSON)
@@ -159,6 +160,7 @@ curl http://localhost:3000/api/providers/health
 - `YANDEX_MODEL_URI` — полный modelUri для YandexGPT (опционально).
 - `ANTHROPIC_API_KEY` — ключ Anthropic Claude API.
 - `DATABASE_URL` — URL подключения к PostgreSQL (обязателен).
+- `PB_API_TOKEN` — опциональный токен защиты для `/api/generate` и `/api/providers/health`. Если задан, клиент обязан передавать `x-api-token`.
 
 Также можно хранить ключи в локальном JSON-файле `config/llm-keys.local.json` (файл добавлен в `.gitignore`).
 Шаблон: `config/llm-keys.local.example.json`.
@@ -206,6 +208,23 @@ docker compose up --build
 ```
 
 После запуска приложение будет доступно на `http://localhost:3000`.
+
+
+## Базовая защита от ботов и сканеров
+
+В проект добавлен middleware-фильтр для API (`src/middleware.ts`), который:
+
+- режет типовые сканерные User-Agent и path-сигнатуры (`/.env`, `wp-admin`, `phpmyadmin` и т.д.);
+- ограничивает размер тела запроса (`413 Payload Too Large` при body > 64 KB);
+- включает rate limit по IP (по умолчанию 90 запросов/мин на контейнер);
+- может включать токен-доступ для чувствительных эндпоинтов через `PB_API_TOKEN` + header `x-api-token`;
+- работает только для `/api/*`, не затрагивая страницы UI.
+
+Рекомендуемый прод-профиль:
+
+1. Не публиковать контейнер напрямую в интернет, а оставлять порт только на loopback (`127.0.0.1:3000:3000`) и ставить reverse proxy с TLS/WAF.
+2. На прокси добавить rate-limit/ban (например, nginx `limit_req`, CrowdSec, fail2ban).
+3. Оставить в firewall доступ к 80/443, а порт 3000 не открывать снаружи.
 
 ## CI
 

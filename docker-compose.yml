@@ -21,11 +21,12 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
       - NODE_ENV=production
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - DATABASE_URL=${DATABASE_URL:-postgresql://prompt_builder:prompt_builder@postgres:5432/prompt_builder}
+      - PB_API_TOKEN=${PB_API_TOKEN:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/providers/health >/dev/null 2>&1 || exit 1"]
       interval: 10s
