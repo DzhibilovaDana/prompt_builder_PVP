@@ -21,6 +21,8 @@ const postgresSchema = `
     password_hash TEXT NOT NULL,
     salt TEXT NOT NULL,
     name TEXT,
+    is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
 

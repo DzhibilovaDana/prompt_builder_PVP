@@ -7,10 +7,10 @@ export type SessionUser = {
   name?: string | null;
 };
 
-export async function getSessionUserWithRole(req: Request): Promise<{ user: SessionUser | null; role: WorkspaceRole | null }> {
+export async function getSessionUserWithRole(req: Request): Promise<{ user: SessionUser | null; role: WorkspaceRole | null; isAdmin: boolean; mustChangePassword: boolean }> {
   const user = await getRequestUser(req);
   if (!user?.id) {
-    return { user: null, role: null };
+    return { user: null, role: null, isAdmin: false, mustChangePassword: false };
   }
 
   const workspaces = await listUserWorkspaces(user.id);
@@ -28,6 +28,8 @@ export async function getSessionUserWithRole(req: Request): Promise<{ user: Sess
   return {
     user: { id: user.id, email: user.email, name: user.name },
     role,
+    isAdmin: user.is_admin,
+    mustChangePassword: user.must_change_password,
   };
 }
 
