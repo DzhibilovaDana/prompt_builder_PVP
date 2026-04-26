@@ -1,6 +1,5 @@
-// src/app/api/auth/login/route.ts
 import { NextResponse } from "next/server";
-import { verifyUser, createSession } from "@/lib/userStore";
+import { verifyUser, createSession, ensureDefaultAdminUser } from "@/lib/userStore";
 
 function makeSessionCookie(token: string) {
   const maxAge = 60 * 60 * 24 * 30; // 30 days
@@ -14,8 +13,16 @@ export async function POST(req: Request) {
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     const password = typeof body.password === "string" ? body.password : "";
 
-    if (!email || !password) {
-      return NextResponse.json({ error: "email and password required" }, { status: 400 });
+    if (!password) {
+      return NextResponse.json({ error: "password required" }, { status: 400 });
+    }
+
+    if (!email) {
+      return NextResponse.json({ error: "email required" }, { status: 400 });
+    }
+
+    if (email === "admin") {
+      await ensureDefaultAdminUser();
     }
 
     const user = await verifyUser(email, password);
@@ -24,7 +31,7 @@ export async function POST(req: Request) {
     }
 
     const token = await createSession(user.id);
-    const res = NextResponse.json({ ok: true, user: { id: user.id, email: user.email, name: user.name } });
+    const res = NextResponse.json({ ok: true, user: { id: user.id, email: user.email, name: user.name, isAdmin: user.is_admin, mustChangePassword: user.must_change_password } });
     res.headers.append("Set-Cookie", makeSessionCookie(token));
     return res;
   } catch (e: unknown) {

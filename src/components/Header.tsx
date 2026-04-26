@@ -14,6 +14,8 @@ type Role = "owner" | "admin" | "editor" | "viewer" | null;
 export const Header: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<Role>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [mustChangePassword, setMustChangePassword] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [loggingOut, setLoggingOut] = useState<boolean>(false);
 
@@ -26,15 +28,19 @@ export const Header: React.FC = () => {
           if (mounted) setUser(null);
           return;
         }
-        const data = (await res.json()) as { user: User | null; role?: Role };
+        const data = (await res.json()) as { user: User | null; role?: Role; isAdmin?: boolean; mustChangePassword?: boolean };
         if (mounted) {
           setUser(data?.user ?? null);
           setRole(data?.role ?? null);
+          setIsAdmin(Boolean(data?.isAdmin));
+          setMustChangePassword(Boolean(data?.mustChangePassword));
         }
       } catch {
         if (mounted) {
           setUser(null);
           setRole(null);
+          setIsAdmin(false);
+          setMustChangePassword(false);
         }
       } finally {
         if (mounted) setLoading(false);
@@ -57,7 +63,7 @@ export const Header: React.FC = () => {
     }
   };
 
-  const canOpenAdmin = role === "owner" || role === "admin";
+  const canOpenAdmin = isAdmin;
 
   return (
     <header className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur">
@@ -74,16 +80,22 @@ export const Header: React.FC = () => {
             <div className="px-3 py-1">...</div>
           ) : user ? (
             <>
-              <Link href="/prompts" className="rounded-full bg-gray-100 px-3 py-1 hover:bg-gray-200">
-                Промпты
-              </Link>
               {canOpenAdmin ? (
                 <Link href="/admin" className="rounded-full bg-gray-100 px-3 py-1 hover:bg-gray-200">
                   Админ
                 </Link>
-              ) : null}
+              ) : (
+                <Link href="/prompts" className="rounded-full bg-gray-100 px-3 py-1 hover:bg-gray-200">
+                  Промпты
+                </Link>
+              )}
               <span className="hidden sm:inline">{user.name ?? user.email}</span>
-              {role ? <span className="hidden rounded-full bg-gray-100 px-3 py-1 sm:inline">Роль: {role}</span> : null}
+              {canOpenAdmin && role ? <span className="hidden rounded-full bg-gray-100 px-3 py-1 sm:inline">Роль: {role}</span> : null}
+              {mustChangePassword ? (
+                <Link href="/auth/change-password" className="rounded-full bg-amber-100 px-3 py-1 text-amber-900 hover:bg-amber-200">
+                  Смените пароль
+                </Link>
+              ) : null}
               <button
                 onClick={handleLogout}
                 disabled={loggingOut}

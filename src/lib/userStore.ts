@@ -1,4 +1,3 @@
-// src/lib/userStore.ts
 import crypto from "crypto";
 import { execFileSync } from "child_process";
 import { DB_PATH, ensureDatabaseSchema, escapeSqlValue, getDatabaseEngine, runPostgresExec, runPostgresJsonQuery } from "@/lib/dbSchema";
@@ -27,6 +26,8 @@ type SessionUserRow = {
   name?: string | null;
   password_hash: string;
   salt: string;
+  is_admin?: boolean;
+  must_change_password?: boolean;
   created_at: string;
 };
 
@@ -36,6 +37,8 @@ export type UserRecord = {
   name?: string | null;
   password_hash: string;
   salt: string;
+  is_admin: boolean;
+  must_change_password: boolean;
   created_at: string;
 };
 
@@ -46,6 +49,8 @@ function normalizeUserRow(row: Record<string, unknown>): UserRecord {
     name: row.name == null ? null : String(row.name),
     password_hash: String(row.password_hash ?? ""),
     salt: String(row.salt ?? ""),
+    is_admin: Boolean(row.is_admin),
+    must_change_password: Boolean(row.must_change_password),
     created_at: String(row.created_at ?? ""),
   };
 }
@@ -54,7 +59,8 @@ export async function createUser(email: string, password: string, name?: string 
   await ensureDatabaseSchema();
 
   const normalizedEmail = email.trim().toLowerCase();
-  const normalizedName = name ? String(name) : null;
+  const normalizedName = name ? String(name).trim() : null;
+  const isAdminCandidate = normalizedEmail === "admin" || normalizedName?.toLowerCase() === "admin";
   const salt = crypto.randomBytes(16).toString("hex");
   const password_hash = hashPassword(password, salt);
 
@@ -62,9 +68,9 @@ export async function createUser(email: string, password: string, name?: string 
     const e = escapeSqlValue(normalizedEmail);
     const n = normalizedName ? `'${escapeSqlValue(normalizedName)}'` : "NULL";
     const rows = runPostgresJsonQuery<Record<string, unknown>[]>(
-      `INSERT INTO users (email, password_hash, salt, name)
-       VALUES ('${e}', '${password_hash}', '${salt}', ${n})
-       RETURNING id, email, name, password_hash, salt, created_at::text AS created_at`
+      `INSERT INTO users (email, password_hash, salt, name, is_admin, must_change_password)
+       VALUES ('${e}', '${password_hash}', '${salt}', ${n}, ${isAdminCandidate ? "TRUE" : "FALSE"}, ${isAdminCandidate ? "TRUE" : "FALSE"})
+       RETURNING id, email, name, password_hash, salt, is_admin, must_change_password, created_at::text AS created_at`
     );
     const created = rows[0];
     if (!created) throw new Error("Failed to create user");
@@ -80,11 +86,59 @@ export async function createUser(email: string, password: string, name?: string 
     `INSERT INTO users (email, password_hash, salt, name, created_at) VALUES ('${emailEsc}', '${password_hash}', '${salt}', ${nm ? `'${nm}'` : "NULL"}, datetime('now'));`
   );
 
-  const rows = runSqlite<UserRecord[]>("SELECT id, email, name, password_hash, salt, created_at FROM users ORDER BY id DESC LIMIT 1;");
+  const rows = runSqlite<UserRecord[]>("SELECT id, email, name, password_hash, salt, is_admin, must_change_password, created_at FROM users ORDER BY id DESC LIMIT 1;");
   const created = rows[0];
   if (!created) throw new Error("Failed to create user");
   await ensurePersonalWorkspace(created.id, created.name);
   return created;
+}
+
+export async function ensureDefaultAdminUser(): Promise<UserRecord> {
+  await ensureDatabaseSchema();
+
+  if (getDatabaseEngine() === "postgres") {
+    const existingRows = runPostgresJsonQuery<Record<string, unknown>[]>(`
+      SELECT id, email, name, password_hash, salt, is_admin, must_change_password, created_at::text AS created_at
+      FROM users
+      WHERE is_admin = TRUE
+      ORDER BY id ASC
+      LIMIT 1
+    `);
+
+    const existing = existingRows[0];
+    if (existing) return normalizeUserRow(existing);
+
+    const salt = crypto.randomBytes(16).toString("hex");
+    const password_hash = hashPassword("admin", salt);
+    const createdRows = runPostgresJsonQuery<Record<string, unknown>[]>(`
+      INSERT INTO users (email, password_hash, salt, name, is_admin, must_change_password)
+      VALUES ('admin', '${password_hash}', '${salt}', 'Administrator', TRUE, TRUE)
+      RETURNING id, email, name, password_hash, salt, is_admin, must_change_password, created_at::text AS created_at
+    `);
+
+    const created = createdRows[0];
+    if (!created) throw new Error("Failed to bootstrap admin user");
+    return normalizeUserRow(created);
+  }
+
+  throw new Error("Unsupported database engine");
+}
+
+export async function updateUserPassword(userId: number, newPassword: string): Promise<void> {
+  await ensureDatabaseSchema();
+  const salt = crypto.randomBytes(16).toString("hex");
+  const passwordHash = hashPassword(newPassword, salt);
+
+  if (getDatabaseEngine() === "postgres") {
+    runPostgresExec(`
+      UPDATE users
+      SET password_hash = '${passwordHash}', salt = '${salt}', must_change_password = FALSE
+      WHERE id = ${userId}
+    `);
+    return;
+  }
+
+  throw new Error("Unsupported database engine");
 }
 
 export async function getUserByEmail(email: string): Promise<UserRecord | null> {
@@ -92,7 +146,7 @@ export async function getUserByEmail(email: string): Promise<UserRecord | null> 
 
   if (getDatabaseEngine() === "postgres") {
     const rows = runPostgresJsonQuery<Record<string, unknown>[]>(
-      `SELECT id, email, name, password_hash, salt, created_at::text AS created_at
+      `SELECT id, email, name, password_hash, salt, is_admin, must_change_password, created_at::text AS created_at
        FROM users
        WHERE email = '${escapeSqlValue(email.trim().toLowerCase())}'
        LIMIT 1`
@@ -101,7 +155,7 @@ export async function getUserByEmail(email: string): Promise<UserRecord | null> 
   }
 
   const e = escapeSqlValue(String(email).trim().toLowerCase());
-  const rows = runSqlite<UserRecord[]>(`SELECT id, email, name, password_hash, salt, created_at FROM users WHERE email = '${e}' LIMIT 1;`);
+  const rows = runSqlite<UserRecord[]>(`SELECT id, email, name, password_hash, salt, is_admin, must_change_password, created_at FROM users WHERE email = '${e}' LIMIT 1;`);
   return rows[0] ?? null;
 }
 
@@ -110,7 +164,7 @@ export async function getUserById(id: number): Promise<UserRecord | null> {
 
   if (getDatabaseEngine() === "postgres") {
     const rows = runPostgresJsonQuery<Record<string, unknown>[]>(
-      `SELECT id, email, name, password_hash, salt, created_at::text AS created_at
+      `SELECT id, email, name, password_hash, salt, is_admin, must_change_password, created_at::text AS created_at
        FROM users
        WHERE id = ${id}
        LIMIT 1`
@@ -118,7 +172,7 @@ export async function getUserById(id: number): Promise<UserRecord | null> {
     return rows[0] ? normalizeUserRow(rows[0]) : null;
   }
 
-  const rows = runSqlite<UserRecord[]>(`SELECT id, email, name, password_hash, salt, created_at FROM users WHERE id = ${id} LIMIT 1;`);
+  const rows = runSqlite<UserRecord[]>(`SELECT id, email, name, password_hash, salt, is_admin, must_change_password, created_at FROM users WHERE id = ${id} LIMIT 1;`);
   return rows[0] ?? null;
 }
 
@@ -150,7 +204,7 @@ export async function getUserBySession(token: string): Promise<UserRecord | null
 
   if (getDatabaseEngine() === "postgres") {
     const rows = runPostgresJsonQuery<Record<string, unknown>[]>(
-      `SELECT u.id, u.email, u.name, u.password_hash, u.salt, u.created_at::text AS created_at
+      `SELECT u.id, u.email, u.name, u.password_hash, u.salt, u.is_admin, u.must_change_password, u.created_at::text AS created_at
        FROM sessions s
        JOIN users u ON s.user_id = u.id
        WHERE s.token = '${escapeSqlValue(token)}'
@@ -159,7 +213,7 @@ export async function getUserBySession(token: string): Promise<UserRecord | null
     return rows[0] ? normalizeUserRow(rows[0]) : null;
   }
 
-  const rows = runSqlite<SessionUserRow[]>(`SELECT u.id, u.email, u.name, u.password_hash, u.salt, u.created_at
+  const rows = runSqlite<SessionUserRow[]>(`SELECT u.id, u.email, u.name, u.password_hash, u.salt, u.is_admin, u.must_change_password, u.created_at
     FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.token = '${escapeSqlValue(token)}' LIMIT 1;`);
   const r = rows[0];
   if (!r) return null;
@@ -169,6 +223,8 @@ export async function getUserBySession(token: string): Promise<UserRecord | null
     name: r.name,
     password_hash: r.password_hash,
     salt: r.salt,
+    is_admin: Boolean(r.is_admin),
+    must_change_password: Boolean(r.must_change_password),
     created_at: r.created_at,
   };
 }
