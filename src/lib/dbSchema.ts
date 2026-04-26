@@ -35,6 +35,8 @@ export async function ensureDatabaseSchema(): Promise<void> {
       password_hash TEXT NOT NULL,
       salt TEXT NOT NULL,
       name TEXT,
+      is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+      must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
@@ -134,6 +136,10 @@ export async function ensureDatabaseSchema(): Promise<void> {
       prompt_text TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;
 
     ALTER TABLE prompts ADD COLUMN IF NOT EXISTS workspace_id INTEGER NULL REFERENCES workspaces(id) ON DELETE SET NULL;
     ALTER TABLE prompts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
