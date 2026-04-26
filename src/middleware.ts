@@ -65,7 +65,7 @@ function hasBlockedUserAgent(userAgent: string): boolean {
 }
 
 function requiresApiToken(pathname: string): boolean {
-  return pathname.startsWith("/api/generate") || pathname.startsWith("/api/providers/health");
+  return pathname.startsWith("/api/generate");
 }
 
 export function middleware(req: NextRequest): NextResponse {
