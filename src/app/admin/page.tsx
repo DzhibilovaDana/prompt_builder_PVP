@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import ConfigEditor from "@/components/ConfigEditor";
 import { getSessionUserWithRole } from "@/lib/authz";
-import AdminUsersPanel from "@/components/admin/AdminUsersPanel";
 
 export default async function AdminPage() {
   const cookieHeader = (await cookies()).toString();
@@ -21,9 +21,21 @@ export default async function AdminPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
-      <h1 className="mb-2 text-2xl font-semibold">Админка · Пользователи</h1>
-      <p className="mb-6 text-sm text-gray-600">Управление пользователями и просмотр их промптов.</p>
-      <AdminUsersPanel />
+      <h1 className="mb-4 text-2xl font-semibold">Админка</h1>
+      <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700">
+        <p className="mb-2 font-medium">Функции админ-панели:</p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>просмотр списка пользователей и их профилей;</li>
+          <li>просмотр пользовательских промптов;</li>
+          <li>добавление и редактирование пользователей;</li>
+          <li>удаление пользователей и связанных промптов.</li>
+        </ul>
+      </div>
+      <h2 className="mb-2 text-lg font-semibold">Справочники генератора</h2>
+      <p className="mb-6 text-sm text-gray-600">
+        Здесь можно редактировать отрасли, экспертов, форматы и их подварианты. Изменения сохраняются в <code>src/data/config.json</code>.
+      </p>
+      <ConfigEditor />
     </main>
   );
 }
