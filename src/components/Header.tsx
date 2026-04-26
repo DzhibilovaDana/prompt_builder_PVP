@@ -65,7 +65,7 @@ export const Header: React.FC = () => {
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-xl bg-black" aria-hidden="true" />
           <Link href="/" className="text-lg font-semibold hover:underline">
-            PromptBuilder · MVP
+            PromptBuilder
           </Link>
         </div>
 
