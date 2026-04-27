@@ -44,6 +44,17 @@ const BLOCKED_HEADER_NAMES = [
   "x-vercel-sc-headers",
 ];
 
+const BLOCKED_URL_PARTS = [
+  "returnnan",
+  "|base64",
+  "%7cbase64",
+  "|bash",
+  "%7cbash",
+  "/dev/tcp",
+  "%24%7b",
+  "${",
+];
+
 const MAX_BODY_BYTES = 64 * 1024;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 90;
@@ -104,6 +115,11 @@ function hasBlockedInternalHeaders(req: NextRequest): boolean {
   return BLOCKED_HEADER_NAMES.some((header) => req.headers.has(header));
 }
 
+function hasBlockedUrlSignature(req: NextRequest): boolean {
+  const target = `${req.nextUrl.pathname}${req.nextUrl.search}`.toLowerCase();
+  return BLOCKED_URL_PARTS.some((part) => target.includes(part));
+}
+
 function isGeneratePath(pathname: string): boolean {
   return pathname.startsWith("/api/generate");
 }
@@ -126,12 +142,12 @@ function hasValidApiToken(req: NextRequest): boolean {
 export function middleware(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;
 
-  if (!pathname.startsWith("/api/")) {
-    return NextResponse.next();
-  }
-
   if (hasBlockedPath(pathname)) {
     return deny(req, 403, "forbidden", "blocked_path_signature");
+  }
+
+  if (hasBlockedUrlSignature(req)) {
+    return deny(req, 403, "forbidden", "blocked_url_signature");
   }
 
   if (hasBlockedInternalHeaders(req)) {
@@ -143,26 +159,28 @@ export function middleware(req: NextRequest): NextResponse {
     return deny(req, 403, "forbidden", "blocked_user_agent");
   }
 
-  const contentLength = Number(req.headers.get("content-length") || "0");
-  if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
-    return deny(req, 413, "payload too large", "payload_limit_exceeded");
-  }
-
-  const ip = getClientIp(req);
-  if (isRateLimited(ip, RATE_LIMIT_MAX)) {
-    return deny(req, 429, "rate limit exceeded", "ip_rate_limit_exceeded");
-  }
-
-  if (isGeneratePath(pathname)) {
-    if (isRateLimited(ip, GENERATE_RATE_LIMIT_MAX)) {
-      return deny(req, 429, "rate limit exceeded", "generate_rate_limit_exceeded");
+  if (pathname.startsWith("/api/")) {
+    const contentLength = Number(req.headers.get("content-length") || "0");
+    if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+      return deny(req, 413, "payload too large", "payload_limit_exceeded");
     }
 
-    const sessionPresent = hasSessionCookie(req);
-    const tokenValid = hasValidApiToken(req);
+    const ip = getClientIp(req);
+    if (isRateLimited(ip, RATE_LIMIT_MAX)) {
+      return deny(req, 429, "rate limit exceeded", "ip_rate_limit_exceeded");
+    }
 
-    if (!sessionPresent && !tokenValid) {
-      return deny(req, 401, "unauthorized", "missing_generate_access_credentials");
+    if (isGeneratePath(pathname)) {
+      if (isRateLimited(ip, GENERATE_RATE_LIMIT_MAX)) {
+        return deny(req, 429, "rate limit exceeded", "generate_rate_limit_exceeded");
+      }
+
+      const sessionPresent = hasSessionCookie(req);
+      const tokenValid = hasValidApiToken(req);
+
+      if (!sessionPresent && !tokenValid) {
+        return deny(req, 401, "unauthorized", "missing_generate_access_credentials");
+      }
     }
   }
 
@@ -170,5 +188,5 @@ export function middleware(req: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ["/api/:path*"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

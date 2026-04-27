@@ -220,7 +220,7 @@ docker compose up --build
 - может включать токен-доступ для чувствительных эндпоинтов через `PB_API_TOKEN` + header `x-api-token`;
 - для `/api/generate` требует `x-api-token` **или** валидную cookie-сессию `pb_session` (hex-64);
 - пишет структурированные security-события (403/413/429/401) с `ip`, `userAgent`, `path` в stdout/stderr контейнера;
-- работает только для `/api/*`, не затрагивая страницы UI.
+- базовые сигнатурные блокировки (UA/path/query/header) применяются ко всем маршрутам, а лимиты body/rate/token-check — к `/api/*`.
 
 ### Рекомендации для reverse proxy / WAF
 
