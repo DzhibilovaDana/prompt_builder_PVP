@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -69,6 +70,12 @@ export default function LoginPage() {
           <button type="submit" disabled={loading} className="rounded bg-black text-white px-4 py-2">
             {loading ? "..." : "Войти"}
           </button>
+        </div>
+        <div className="text-sm text-gray-600">
+          Нет аккаунта?{" "}
+          <Link href="/auth/register" className="font-medium text-black underline">
+            Регистрация
+          </Link>
         </div>
       </form>
     </div>
