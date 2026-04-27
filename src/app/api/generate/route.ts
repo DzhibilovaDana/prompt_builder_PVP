@@ -47,26 +47,32 @@ async function handleSingleModel(prompt: string, model: string): Promise<SingleM
     return { mode: "mock", model, output: mockGenerate(prompt) };
   }
 
-  const res = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      input: prompt,
-    }),
-  });
+  try {
+    const res = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        input: prompt,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
 
-  if (!res.ok) {
-    const text = await res.text();
-    return { error: `OpenAI error: ${text}`, status: 502 };
+    if (!res.ok) {
+      const text = await res.text();
+      return { error: `OpenAI error: ${text}`, status: 502 };
+    }
+
+    const data = (await res.json()) as OpenAIResponse;
+    const output = typeof data.output_text === "string" ? data.output_text : JSON.stringify(data);
+    return { mode: "openai", model, output };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { error: `OpenAI network error: ${message}`, status: 502 };
   }
-
-  const data = (await res.json()) as OpenAIResponse;
-  const output = typeof data.output_text === "string" ? data.output_text : JSON.stringify(data);
-  return { mode: "openai", model, output };
 }
 
 export async function POST(req: Request) {
