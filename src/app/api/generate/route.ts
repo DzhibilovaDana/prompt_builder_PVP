@@ -4,6 +4,7 @@ import { generateWithProviders } from "@/lib/inference";
 import { sanitizeProviderSecrets } from "@/lib/providerSecrets";
 import { createPromptRun } from "@/lib/promptStore";
 import { getRequestUser } from "@/lib/auth";
+import { hasSuspiciousPayload } from "@/lib/security";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,9 +72,38 @@ async function handleSingleModel(prompt: string, model: string): Promise<SingleM
 export async function POST(req: Request) {
   try {
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+
+    if (hasSuspiciousPayload(body)) {
+      const forwardedFor = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+      const ip = forwardedFor || req.headers.get("x-real-ip") || "unknown";
+      const userAgent = req.headers.get("user-agent") || "unknown";
+
+      console.warn(
+        JSON.stringify({
+          type: "security_event",
+          reason: "suspicious_payload_blocked",
+          status: 400,
+          method: "POST",
+          path: "/api/generate",
+          ip,
+          userAgent,
+          timestamp: new Date().toISOString(),
+        })
+      );
+
+      return NextResponse.json({ error: "suspicious payload blocked" }, { status: 400 });
+    }
     const promptId = typeof body.promptId === "number" && Number.isInteger(body.promptId) ? body.promptId : null;
     const workspaceId = typeof body.workspaceId === "number" && Number.isInteger(body.workspaceId) ? body.workspaceId : null;
     const user = await getRequestUser(req);
+
+    const configuredApiToken = process.env.PB_API_TOKEN?.trim();
+    const headerToken = req.headers.get("x-api-token")?.trim();
+    const hasValidApiToken = Boolean(configuredApiToken && headerToken && headerToken === configuredApiToken);
+
+    if (!hasValidApiToken && !user) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
 
     if (Array.isArray(body.providers)) {
       const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";

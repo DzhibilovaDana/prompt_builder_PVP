@@ -160,7 +160,7 @@ curl http://localhost:3000/api/providers/health
 - `YANDEX_MODEL_URI` — полный modelUri для YandexGPT (опционально).
 - `ANTHROPIC_API_KEY` — ключ Anthropic Claude API.
 - `DATABASE_URL` — URL подключения к PostgreSQL (обязателен).
-- `PB_API_TOKEN` — опциональный токен защиты для `/api/generate` и `/api/providers/health`. Если задан, клиент обязан передавать `x-api-token`.
+- `PB_API_TOKEN` — токен защиты для `/api/generate`. Эндпоинт допускает запрос только при одном из условий: валидный `x-api-token` **или** валидная сессия пользователя (`pb_session`).
 
 Также можно хранить ключи в локальном JSON-файле `config/llm-keys.local.json` (файл добавлен в `.gitignore`).
 Шаблон: `config/llm-keys.local.example.json`.
@@ -218,7 +218,40 @@ docker compose up --build
 - ограничивает размер тела запроса (`413 Payload Too Large` при body > 64 KB);
 - включает rate limit по IP (по умолчанию 90 запросов/мин на контейнер);
 - может включать токен-доступ для чувствительных эндпоинтов через `PB_API_TOKEN` + header `x-api-token`;
+- для `/api/generate` требует `x-api-token` **или** cookie-сессию `pb_session`;
+- пишет структурированные security-события (403/413/429/401) с `ip`, `userAgent`, `path` в stdout/stderr контейнера;
 - работает только для `/api/*`, не затрагивая страницы UI.
+
+### Рекомендации для reverse proxy / WAF
+
+Минимальная защита на Nginx (перед контейнером):
+
+```nginx
+limit_req_zone $binary_remote_addr zone=api_limit:10m rate=20r/s;
+
+server {
+  location /api/ {
+    limit_req zone=api_limit burst=40 nodelay;
+
+    if ($request_uri ~* "(base64\s+-d\|bash|/dev/tcp/|curl\s+.*\|\s*sh)") {
+      return 403;
+    }
+
+    proxy_pass http://127.0.0.1:3000;
+  }
+}
+```
+
+Для автобана по логам можно использовать fail2ban/CrowdSec (фильтры на `blocked_user_agent`, `blocked_path_signature`, `missing_generate_access_credentials`).
+
+### Алерты и наблюдаемость
+
+Рекомендуется настроить оповещения в вашей системе логов/мониторинга (Loki/ELK/Datadog/CloudWatch):
+
+- всплеск `status=400` с причиной `suspicious_payload_blocked`;
+- всплеск `status=403` и `status=429`;
+- топ IP/UA за последние 5–15 минут по security-событиям;
+- алерт при повторяющихся событиях от одного IP (например, >30 блокировок за 10 минут).
 
 Рекомендуемый прод-профиль:
 

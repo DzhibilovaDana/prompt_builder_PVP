@@ -53,6 +53,28 @@ function getClientIp(req: NextRequest): string {
   return forwarded || req.headers.get("x-real-ip") || "unknown";
 }
 
+function logSecurityEvent(req: NextRequest, status: number, reason: string): void {
+  const ip = getClientIp(req);
+  const userAgent = req.headers.get("user-agent") || "unknown";
+  console.warn(
+    JSON.stringify({
+      type: "security_event",
+      status,
+      reason,
+      method: req.method,
+      path: req.nextUrl.pathname,
+      ip,
+      userAgent,
+      timestamp: new Date().toISOString(),
+    })
+  );
+}
+
+function deny(req: NextRequest, status: number, error: string, reason: string): NextResponse {
+  logSecurityEvent(req, status, reason);
+  return NextResponse.json({ error }, { status });
+}
+
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
   const counter = counters.get(ip);
@@ -80,8 +102,22 @@ function hasBlockedInternalHeaders(req: NextRequest): boolean {
   return BLOCKED_HEADER_NAMES.some((header) => req.headers.has(header));
 }
 
-function requiresApiToken(pathname: string): boolean {
+function isGeneratePath(pathname: string): boolean {
   return pathname.startsWith("/api/generate");
+}
+
+function hasSessionCookie(req: NextRequest): boolean {
+  return Boolean(req.cookies.get("pb_session")?.value);
+}
+
+function hasValidApiToken(req: NextRequest): boolean {
+  const configuredApiToken = process.env.PB_API_TOKEN?.trim();
+  if (!configuredApiToken) {
+    return false;
+  }
+
+  const requestToken = req.headers.get("x-api-token")?.trim();
+  return Boolean(requestToken && requestToken === configuredApiToken);
 }
 
 export function middleware(req: NextRequest): NextResponse {
@@ -92,33 +128,34 @@ export function middleware(req: NextRequest): NextResponse {
   }
 
   if (hasBlockedPath(pathname)) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    return deny(req, 403, "forbidden", "blocked_path_signature");
   }
 
   if (hasBlockedInternalHeaders(req)) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    return deny(req, 403, "forbidden", "blocked_internal_headers");
   }
 
   const userAgent = req.headers.get("user-agent") || "";
   if (userAgent && hasBlockedUserAgent(userAgent)) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    return deny(req, 403, "forbidden", "blocked_user_agent");
   }
 
   const contentLength = Number(req.headers.get("content-length") || "0");
   if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
-    return NextResponse.json({ error: "payload too large" }, { status: 413 });
+    return deny(req, 413, "payload too large", "payload_limit_exceeded");
   }
 
   const ip = getClientIp(req);
   if (isRateLimited(ip)) {
-    return NextResponse.json({ error: "rate limit exceeded" }, { status: 429 });
+    return deny(req, 429, "rate limit exceeded", "ip_rate_limit_exceeded");
   }
 
-  const configuredApiToken = process.env.PB_API_TOKEN?.trim();
-  if (configuredApiToken && requiresApiToken(pathname)) {
-    const token = req.headers.get("x-api-token")?.trim();
-    if (!token || token !== configuredApiToken) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (isGeneratePath(pathname)) {
+    const sessionPresent = hasSessionCookie(req);
+    const tokenValid = hasValidApiToken(req);
+
+    if (!sessionPresent && !tokenValid) {
+      return deny(req, 401, "unauthorized", "missing_generate_access_credentials");
     }
   }
 
