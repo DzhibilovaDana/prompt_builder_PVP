@@ -4,6 +4,21 @@
 import React, { useEffect, useState } from "react";
 import type { AppConfig, Industry, Format, SubOption, ExtraField, ExtraFieldItem } from "@/lib/config";
 
+function normalizeConfig(raw: AppConfig): AppConfig {
+  return {
+    ...raw,
+    industries: (raw.industries || []).map((industry) => ({
+      ...industry,
+      experts: Array.isArray(industry.experts) ? industry.experts : [],
+    })),
+    formats: (raw.formats || []).map((format) => ({
+      ...format,
+      subOptions: Array.isArray(format.subOptions) ? format.subOptions : [],
+      extraFields: Array.isArray(format.extraFields) ? format.extraFields : [],
+    })),
+  };
+}
+
 export default function ConfigEditor() {
   const [cfg, setCfg] = useState<AppConfig | null>(null);
   const [saving, setSaving] = useState(false);
@@ -24,8 +39,9 @@ export default function ConfigEditor() {
         if (!Array.isArray((data as AppConfig).formats) || !Array.isArray((data as AppConfig).industries)) {
           throw new Error("Некорректный формат конфигурации");
         }
-        setCfg(data as AppConfig);
-        setActiveFormatId((data as AppConfig).formats[0]?.id ?? null);
+        const normalized = normalizeConfig(data as AppConfig);
+        setCfg(normalized);
+        setActiveFormatId(normalized.formats[0]?.id ?? null);
       } catch (e: unknown) {
         setCfg(null);
         setActiveFormatId(null);

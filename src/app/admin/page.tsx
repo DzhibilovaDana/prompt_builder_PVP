@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import ConfigEditor from "@/components/ConfigEditor";
+import AdminUsersPanel from "@/components/admin/AdminUsersPanel";
 import { getSessionUserWithRole } from "@/lib/authz";
 
 export default async function AdminPage() {
@@ -36,6 +37,9 @@ export default async function AdminPage() {
         Здесь можно редактировать отрасли, экспертов, форматы и их подварианты. Изменения сохраняются в <code>src/data/config.json</code>.
       </p>
       <ConfigEditor />
+      <div className="mt-10 border-t pt-8">
+        <AdminUsersPanel />
+      </div>
     </main>
   );
 }
