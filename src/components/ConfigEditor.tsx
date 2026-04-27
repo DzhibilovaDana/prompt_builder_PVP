@@ -13,10 +13,24 @@ export default function ConfigEditor() {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch("/api/config", { cache: "no-store" });
-      const data = await res.json();
-      setCfg(data);
-      setActiveFormatId(data?.formats?.[0]?.id ?? null);
+      setError(null);
+      try {
+        const res = await fetch("/api/config", { cache: "no-store" });
+        const data = (await res.json()) as AppConfig | { error?: string };
+        if (!res.ok) {
+          const message = "error" in data && typeof data.error === "string" ? data.error : "Не удалось загрузить конфигурацию";
+          throw new Error(message);
+        }
+        if (!Array.isArray((data as AppConfig).formats) || !Array.isArray((data as AppConfig).industries)) {
+          throw new Error("Некорректный формат конфигурации");
+        }
+        setCfg(data as AppConfig);
+        setActiveFormatId((data as AppConfig).formats[0]?.id ?? null);
+      } catch (e: unknown) {
+        setCfg(null);
+        setActiveFormatId(null);
+        setError(e instanceof Error ? e.message : "Ошибка загрузки конфигурации");
+      }
     })();
   }, []);
 
@@ -182,7 +196,10 @@ export default function ConfigEditor() {
     }
   }
 
-  if (!cfg) return <div className="text-sm text-gray-600">Загрузка…</div>;
+  if (!cfg) {
+    if (error) return <div className="text-sm text-red-600">{error}</div>;
+    return <div className="text-sm text-gray-600">Загрузка…</div>;
+  }
 
   const activeFormatIdx = cfg.formats.findIndex((f) => f.id === activeFormatId);
   const activeFormat = activeFormatIdx >= 0 ? cfg.formats[activeFormatIdx] : null;
