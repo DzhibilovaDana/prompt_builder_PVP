@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
@@ -74,6 +75,12 @@ export default function RegisterPage() {
           <button type="submit" disabled={loading} className="rounded bg-black text-white px-4 py-2">
             {loading ? "..." : "Зарегистрироваться"}
           </button>
+        </div>
+        <div className="text-sm text-gray-600">
+          Уже есть аккаунт?{" "}
+          <Link href="/auth/login" className="font-medium text-black underline">
+            Войти
+          </Link>
         </div>
       </form>
     </div>
