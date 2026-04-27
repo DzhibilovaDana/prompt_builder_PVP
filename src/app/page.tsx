@@ -10,13 +10,13 @@ import { getSessionUserWithRole } from "@/lib/authz";
 export const dynamic = "force-dynamic"; // при необходимости, чтобы всегда читалось актуальное
 
 export default async function Page() {
-  try {
-    const cookieHeader = (await cookies()).toString();
-    const { isAdmin } = await getSessionUserWithRole(new Request("http://localhost/", { headers: { cookie: cookieHeader } }));
-    if (isAdmin) {
-      redirect("/admin");
-    }
+  const cookieHeader = (await cookies()).toString();
+  const { isAdmin } = await getSessionUserWithRole(new Request("http://localhost/", { headers: { cookie: cookieHeader } }));
+  if (isAdmin) {
+    redirect("/admin");
+  }
 
+  try {
     // читаем конфиг на сервере (readConfig читает src/data/config.json)
     const cfg: AppConfig = await readConfig();
 
