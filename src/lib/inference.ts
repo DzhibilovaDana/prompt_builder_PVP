@@ -13,6 +13,7 @@ const DEFAULT_OPENAI_MODEL = "gpt-4.1-mini";
 const DEFAULT_DEEPSEEK_MODEL = "deepseek-chat";
 const DEFAULT_CLAUDE_MODEL = "claude-3-5-sonnet-latest";
 const DEFAULT_YANDEX_MODEL_URI = "gpt://<folder-id>/yandexgpt-lite/latest";
+const PROVIDER_TIMEOUT_MS = 15000;
 
 function normalizeText(value: unknown): string {
   if (typeof value === "string" && value.trim()) {
@@ -34,31 +35,42 @@ async function callOpenAI(prompt: string, secrets: ProviderSecrets): Promise<Pro
     };
   }
 
-  const res = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${openaiApiKey}`,
-    },
-    body: JSON.stringify({ model: DEFAULT_OPENAI_MODEL, input: prompt }),
-  });
+  try {
+    const res = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openaiApiKey}`,
+      },
+      body: JSON.stringify({ model: DEFAULT_OPENAI_MODEL, input: prompt }),
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+    });
 
-  if (!res.ok) {
+    if (!res.ok) {
+      return {
+        status: "error",
+        error: `OpenAI error: ${await res.text()}`,
+        model: DEFAULT_OPENAI_MODEL,
+        timeMs: Date.now() - t0,
+      };
+    }
+
+    const data = (await res.json()) as { output_text?: unknown };
+    return {
+      status: "ok",
+      output: normalizeText(data.output_text ?? data),
+      model: DEFAULT_OPENAI_MODEL,
+      timeMs: Date.now() - t0,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     return {
       status: "error",
-      error: `OpenAI error: ${await res.text()}`,
+      error: `OpenAI network error: ${message}`,
       model: DEFAULT_OPENAI_MODEL,
       timeMs: Date.now() - t0,
     };
   }
-
-  const data = (await res.json()) as { output_text?: unknown };
-  return {
-    status: "ok",
-    output: normalizeText(data.output_text ?? data),
-    model: DEFAULT_OPENAI_MODEL,
-    timeMs: Date.now() - t0,
-  };
 }
 
 async function callDeepSeek(prompt: string, secrets: ProviderSecrets): Promise<ProviderResult> {
@@ -74,37 +86,48 @@ async function callDeepSeek(prompt: string, secrets: ProviderSecrets): Promise<P
     };
   }
 
-  const res = await fetch("https://api.deepseek.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${deepseekApiKey}`,
-    },
-    body: JSON.stringify({
-      model: DEFAULT_DEEPSEEK_MODEL,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.2,
-    }),
-  });
+  try {
+    const res = await fetch("https://api.deepseek.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${deepseekApiKey}`,
+      },
+      body: JSON.stringify({
+        model: DEFAULT_DEEPSEEK_MODEL,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2,
+      }),
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+    });
 
-  if (!res.ok) {
+    if (!res.ok) {
+      return {
+        status: "error",
+        error: `DeepSeek error: ${await res.text()}`,
+        model: DEFAULT_DEEPSEEK_MODEL,
+        timeMs: Date.now() - t0,
+      };
+    }
+
+    const data = (await res.json()) as { choices?: Array<{ message?: { content?: unknown } }> };
+    const output = data.choices?.[0]?.message?.content;
+
+    return {
+      status: "ok",
+      output: normalizeText(output ?? data),
+      model: DEFAULT_DEEPSEEK_MODEL,
+      timeMs: Date.now() - t0,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     return {
       status: "error",
-      error: `DeepSeek error: ${await res.text()}`,
+      error: `DeepSeek network error: ${message}`,
       model: DEFAULT_DEEPSEEK_MODEL,
       timeMs: Date.now() - t0,
     };
   }
-
-  const data = (await res.json()) as { choices?: Array<{ message?: { content?: unknown } }> };
-  const output = data.choices?.[0]?.message?.content;
-
-  return {
-    status: "ok",
-    output: normalizeText(output ?? data),
-    model: DEFAULT_DEEPSEEK_MODEL,
-    timeMs: Date.now() - t0,
-  };
 }
 
 async function callYandexGPT(prompt: string, secrets: ProviderSecrets): Promise<ProviderResult> {
@@ -122,44 +145,55 @@ async function callYandexGPT(prompt: string, secrets: ProviderSecrets): Promise<
 
   const modelUri = yandexModelUri || (yandexFolderId ? `gpt://${yandexFolderId}/yandexgpt-lite/latest` : DEFAULT_YANDEX_MODEL_URI);
 
-  const res = await fetch("https://llm.api.cloud.yandex.net/foundationModels/v1/completion", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Api-Key ${yandexApiKey}`,
-    },
-    body: JSON.stringify({
-      modelUri,
-      completionOptions: {
-        stream: false,
-        temperature: 0.2,
-        maxTokens: "2000",
+  try {
+    const res = await fetch("https://llm.api.cloud.yandex.net/foundationModels/v1/completion", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Api-Key ${yandexApiKey}`,
       },
-      messages: [{ role: "user", text: prompt }],
-    }),
-  });
+      body: JSON.stringify({
+        modelUri,
+        completionOptions: {
+          stream: false,
+          temperature: 0.2,
+          maxTokens: "2000",
+        },
+        messages: [{ role: "user", text: prompt }],
+      }),
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+    });
 
-  if (!res.ok) {
+    if (!res.ok) {
+      return {
+        status: "error",
+        error: `YandexGPT error: ${await res.text()}`,
+        model: modelUri,
+        timeMs: Date.now() - t0,
+      };
+    }
+
+    const data = (await res.json()) as {
+      result?: { alternatives?: Array<{ message?: { text?: unknown } }> };
+    };
+
+    const output = data.result?.alternatives?.[0]?.message?.text;
+
+    return {
+      status: "ok",
+      output: normalizeText(output ?? data),
+      model: modelUri,
+      timeMs: Date.now() - t0,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     return {
       status: "error",
-      error: `YandexGPT error: ${await res.text()}`,
+      error: `YandexGPT network error: ${message}`,
       model: modelUri,
       timeMs: Date.now() - t0,
     };
   }
-
-  const data = (await res.json()) as {
-    result?: { alternatives?: Array<{ message?: { text?: unknown } }> };
-  };
-
-  const output = data.result?.alternatives?.[0]?.message?.text;
-
-  return {
-    status: "ok",
-    output: normalizeText(output ?? data),
-    model: modelUri,
-    timeMs: Date.now() - t0,
-  };
 }
 
 async function callClaude(prompt: string, secrets: ProviderSecrets): Promise<ProviderResult> {
@@ -175,41 +209,52 @@ async function callClaude(prompt: string, secrets: ProviderSecrets): Promise<Pro
     };
   }
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": anthropicApiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: DEFAULT_CLAUDE_MODEL,
-      max_tokens: 1500,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": anthropicApiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: DEFAULT_CLAUDE_MODEL,
+        max_tokens: 1500,
+        messages: [{ role: "user", content: prompt }],
+      }),
+      signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
+    });
 
-  if (!res.ok) {
+    if (!res.ok) {
+      return {
+        status: "error",
+        error: `Claude error: ${await res.text()}`,
+        model: DEFAULT_CLAUDE_MODEL,
+        timeMs: Date.now() - t0,
+      };
+    }
+
+    const data = (await res.json()) as {
+      content?: Array<{ type?: string; text?: unknown }>;
+    };
+
+    const output = data.content?.find((part) => part.type === "text")?.text;
+
+    return {
+      status: "ok",
+      output: normalizeText(output ?? data),
+      model: DEFAULT_CLAUDE_MODEL,
+      timeMs: Date.now() - t0,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     return {
       status: "error",
-      error: `Claude error: ${await res.text()}`,
+      error: `Claude network error: ${message}`,
       model: DEFAULT_CLAUDE_MODEL,
       timeMs: Date.now() - t0,
     };
   }
-
-  const data = (await res.json()) as {
-    content?: Array<{ type?: string; text?: unknown }>;
-  };
-
-  const output = data.content?.find((part) => part.type === "text")?.text;
-
-  return {
-    status: "ok",
-    output: normalizeText(output ?? data),
-    model: DEFAULT_CLAUDE_MODEL,
-    timeMs: Date.now() - t0,
-  };
 }
 
 export function getProvidersHealth(providerKeys?: ProviderSecrets): Record<string, { status: "ok" | "error"; configured: boolean; model: string }> {
