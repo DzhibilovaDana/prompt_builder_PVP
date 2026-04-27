@@ -75,6 +75,7 @@ export default function AdminUsersPanel() {
 
   if (loading) return <p className="text-sm text-gray-500">Загрузка админ-данных...</p>;
   if (error) return <p className="text-sm text-red-600">{error}</p>;
+  const regularUsers = users.filter((item) => !item.is_admin);
 
   return (
     <div className="space-y-8">
@@ -84,7 +85,8 @@ export default function AdminUsersPanel() {
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 py-2 text-left">ID</th>
+                <th className="px-3 py-2 text-left">№</th>
+                <th className="px-3 py-2 text-left">User ID</th>
                 <th className="px-3 py-2 text-left">Имя</th>
                 <th className="px-3 py-2 text-left">Email</th>
                 <th className="px-3 py-2 text-left">Роль</th>
@@ -93,8 +95,9 @@ export default function AdminUsersPanel() {
               </tr>
             </thead>
             <tbody>
-              {users.filter((item) => !item.is_admin).map((u) => (
+              {regularUsers.map((u, idx) => (
                 <tr key={u.id} className="border-t">
+                  <td className="px-3 py-2">{idx + 1}</td>
                   <td className="px-3 py-2">{u.id}</td>
                   <td className="px-3 py-2">{u.name || "—"}</td>
                   <td className="px-3 py-2">{u.email}</td>

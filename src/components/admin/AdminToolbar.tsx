@@ -6,11 +6,11 @@ import { useState } from "react";
 export default function AdminToolbar() {
   const [busy, setBusy] = useState(false);
 
-  const doLogout = async (redirectToLogin: boolean) => {
+  const doLogout = async () => {
     setBusy(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      window.location.href = redirectToLogin ? "/auth/login" : "/";
+      window.location.href = "/auth/login";
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Ошибка выхода";
       alert(message);
@@ -24,14 +24,7 @@ export default function AdminToolbar() {
         Сменить пароль
       </Link>
       <button
-        onClick={() => void doLogout(true)}
-        disabled={busy}
-        className="rounded-full bg-gray-100 px-3 py-1 text-sm hover:bg-gray-200"
-      >
-        Сменить пользователя
-      </button>
-      <button
-        onClick={() => void doLogout(false)}
+        onClick={() => void doLogout()}
         disabled={busy}
         className="rounded-full bg-gray-100 px-3 py-1 text-sm hover:bg-gray-200"
       >
