@@ -47,6 +47,7 @@ const BLOCKED_HEADER_NAMES = [
 const MAX_BODY_BYTES = 64 * 1024;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX = 90;
+const GENERATE_RATE_LIMIT_MAX = 30;
 
 function getClientIp(req: NextRequest): string {
   const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
@@ -75,17 +76,18 @@ function deny(req: NextRequest, status: number, error: string, reason: string): 
   return NextResponse.json({ error }, { status });
 }
 
-function isRateLimited(ip: string): boolean {
+function isRateLimited(ip: string, limit: number): boolean {
   const now = Date.now();
-  const counter = counters.get(ip);
+  const key = `${ip}:${limit}`;
+  const counter = counters.get(key);
 
   if (!counter || now - counter.windowStartedAt >= RATE_LIMIT_WINDOW_MS) {
-    counters.set(ip, { count: 1, windowStartedAt: now });
+    counters.set(key, { count: 1, windowStartedAt: now });
     return false;
   }
 
   counter.count += 1;
-  return counter.count > RATE_LIMIT_MAX;
+  return counter.count > limit;
 }
 
 function hasBlockedPath(pathname: string): boolean {
@@ -107,7 +109,8 @@ function isGeneratePath(pathname: string): boolean {
 }
 
 function hasSessionCookie(req: NextRequest): boolean {
-  return Boolean(req.cookies.get("pb_session")?.value);
+  const token = req.cookies.get("pb_session")?.value;
+  return typeof token === "string" && /^[A-Fa-f0-9]{64}$/.test(token);
 }
 
 function hasValidApiToken(req: NextRequest): boolean {
@@ -146,11 +149,15 @@ export function middleware(req: NextRequest): NextResponse {
   }
 
   const ip = getClientIp(req);
-  if (isRateLimited(ip)) {
+  if (isRateLimited(ip, RATE_LIMIT_MAX)) {
     return deny(req, 429, "rate limit exceeded", "ip_rate_limit_exceeded");
   }
 
   if (isGeneratePath(pathname)) {
+    if (isRateLimited(ip, GENERATE_RATE_LIMIT_MAX)) {
+      return deny(req, 429, "rate limit exceeded", "generate_rate_limit_exceeded");
+    }
+
     const sessionPresent = hasSessionCookie(req);
     const tokenValid = hasValidApiToken(req);
 

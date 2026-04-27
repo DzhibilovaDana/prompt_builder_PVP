@@ -2,7 +2,7 @@ import { getUserBySession, type UserRecord } from "@/lib/userStore";
 
 export function readSessionTokenFromCookie(cookieHeader: string | null): string | null {
   const cookie = cookieHeader || "";
-  const m = cookie.match(/pb_session=([A-Fa-f0-9]+);?/);
+  const m = cookie.match(/pb_session=([A-Fa-f0-9]{64});?/);
   return m ? m[1] : null;
 }
 

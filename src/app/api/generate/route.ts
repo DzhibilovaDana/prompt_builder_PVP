@@ -101,12 +101,12 @@ export async function POST(req: Request) {
     }
     const promptId = typeof body.promptId === "number" && Number.isInteger(body.promptId) ? body.promptId : null;
     const workspaceId = typeof body.workspaceId === "number" && Number.isInteger(body.workspaceId) ? body.workspaceId : null;
-    const user = await getRequestUser(req);
 
     const configuredApiToken = process.env.PB_API_TOKEN?.trim();
     const headerToken = req.headers.get("x-api-token")?.trim();
     const hasValidApiToken = Boolean(configuredApiToken && headerToken && headerToken === configuredApiToken);
 
+    const user = hasValidApiToken ? null : await getRequestUser(req);
     if (!hasValidApiToken && !user) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }

@@ -216,9 +216,9 @@ docker compose up --build
 
 - режет типовые сканерные User-Agent и path-сигнатуры (`/.env`, `wp-admin`, `phpmyadmin` и т.д.);
 - ограничивает размер тела запроса (`413 Payload Too Large` при body > 64 KB);
-- включает rate limit по IP (по умолчанию 90 запросов/мин на контейнер);
+- включает rate limit по IP (90 req/мин для `/api/*` и 30 req/мин для `/api/generate`);
 - может включать токен-доступ для чувствительных эндпоинтов через `PB_API_TOKEN` + header `x-api-token`;
-- для `/api/generate` требует `x-api-token` **или** cookie-сессию `pb_session`;
+- для `/api/generate` требует `x-api-token` **или** валидную cookie-сессию `pb_session` (hex-64);
 - пишет структурированные security-события (403/413/429/401) с `ip`, `userAgent`, `path` в stdout/stderr контейнера;
 - работает только для `/api/*`, не затрагивая страницы UI.
 
