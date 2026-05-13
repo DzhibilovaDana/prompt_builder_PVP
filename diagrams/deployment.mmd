@@ -1,25 +1,3 @@
-%% Deployment Diagram (infrastructure view)
 flowchart LR
-  subgraph CLIENTS[Клиенты]
-    BA[Browser (Author)]
-    BM[Browser (Admin)]
-  end
-
-  subgraph CLOUD[Сервер (облако)]
-    subgraph APP[Web/API Server (Next.js)]
-      APPART[artifact: promptbuilder-nextjs]
-    end
-
-    subgraph DB[DB Server]
-      CFGDB[(artifact: config-db\nSQLite MVP / Postgres MUP)]
-    end
-  end
-
-  OBJ[Object Storage (planned)\nS3 / MinIO]
-  LLM[LLM Provider (planned)\nOpenAI / др.]
-
-  BA -->|HTTPS| APPART
-  BM -->|HTTPS| APPART
-  APPART -->|SQL| CFGDB
-  APPART -. planned .->|S3 API| OBJ
-  APPART -. planned .->|HTTPS API| LLM
+  Browser[User Browser] --> DockerWeb[Docker Container: Next.js App]
+  DockerWeb --> DockerDB[Docker Container: PostgreSQL]

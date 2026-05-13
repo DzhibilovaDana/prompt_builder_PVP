@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { deletePrompt, getPromptById, updatePrompt, type PromptRecord } from "@/lib/promptStore";
 import { getRequestUser } from "@/lib/auth";
-import { canWriteWorkspace } from "@/lib/workspaceStore";
+import { canEditPromptByUser, canReadPromptByUser } from "@/lib/promptAccess";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,18 +37,7 @@ function toPublic(item: PromptRecord) {
   };
 }
 
-async function canEditPrompt(req: Request, prompt: PromptRecord): Promise<boolean> {
-  const user = await getRequestUser(req);
-  if (!user?.id) return prompt.user_id === null;
-
-  if (prompt.workspace_id) {
-    return canWriteWorkspace(prompt.workspace_id, user.id);
-  }
-
-  return prompt.user_id === null || Number(user.id) === Number(prompt.user_id);
-}
-
-export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await ctx.params;
     const promptId = Number(id);
@@ -61,6 +50,11 @@ export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) 
       return NextResponse.json({ error: "not found" }, { status: 404 });
     }
 
+    const user = await getRequestUser(req);
+    if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    const allowed = await canReadPromptByUser(prompt, user.id);
+    if (!allowed) return NextResponse.json({ error: "not found" }, { status: 404 });
+
     return NextResponse.json(toPublic(prompt));
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Get prompt error";
@@ -70,6 +64,9 @@ export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) 
 
 export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const user = await getRequestUser(req);
+    if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
     const { id } = await ctx.params;
     const promptId = Number(id);
     if (!Number.isInteger(promptId) || promptId <= 0) {
@@ -93,11 +90,10 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
     const prompt = await getPromptById(promptId);
     if (!prompt) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-    const allowed = await canEditPrompt(req, prompt);
+    const allowed = await canEditPromptByUser(prompt, user.id);
     if (!allowed) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
-    const user = await getRequestUser(req);
-    const updated = await updatePrompt(promptId, title, content, user?.id ?? null, { category, tags, metadata });
+    const updated = await updatePrompt(promptId, title, content, user.id, { category, tags, metadata });
     if (!updated) {
       return NextResponse.json({ error: "not found" }, { status: 404 });
     }
@@ -111,6 +107,9 @@ export async function PUT(req: Request, ctx: { params: Promise<{ id: string }> }
 
 export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }> }) {
   try {
+    const user = await getRequestUser(req);
+    if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
     const { id } = await ctx.params;
     const promptId = Number(id);
     if (!Number.isInteger(promptId) || promptId <= 0) {
@@ -120,11 +119,10 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
     const prompt = await getPromptById(promptId);
     if (!prompt) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-    const allowed = await canEditPrompt(req, prompt);
+    const allowed = await canEditPromptByUser(prompt, user.id);
     if (!allowed) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
-    const user = await getRequestUser(req);
-    const removed = await deletePrompt(promptId, user?.id ?? null);
+    const removed = await deletePrompt(promptId, user.id);
     if (!removed) {
       return NextResponse.json({ error: "not found" }, { status: 404 });
     }

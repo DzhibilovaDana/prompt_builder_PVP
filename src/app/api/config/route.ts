@@ -1,6 +1,6 @@
-// app/api/config/route.ts
 import { NextResponse } from "next/server";
 import { readConfig, writeConfig } from "@/lib/config";
+import { getRequestUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -16,8 +16,11 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   try {
+    const user = await getRequestUser(req);
+    if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    if (!user.is_admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+
     const body = await req.json();
-    // Можно добавить простую проверку структуры, но writeConfig уже проверяет список
     await writeConfig(body);
     return NextResponse.json({ ok: true });
   } catch (e: unknown) {

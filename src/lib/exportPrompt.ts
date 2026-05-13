@@ -1,7 +1,4 @@
-// src/lib/exportPrompt.ts
-
 function downloadFile(filename: string, content: string, mimeType: string) {
-  // На сервере (SSR) просто выходим
   if (typeof window === "undefined") return;
 
   const blob = new Blob([content], { type: mimeType });
@@ -18,7 +15,6 @@ function downloadFile(filename: string, content: string, mimeType: string) {
   URL.revokeObjectURL(url);
 }
 
-// Сделаем простое имя файла: prompt-2025-01-01T10-00-00-000Z.md
 function makeFilename(ext: string): string {
   const now = new Date();
   const iso = now.toISOString().replace(/[:.]/g, "-");
@@ -32,13 +28,16 @@ function escapeHtml(text: string): string {
     .replace(/>/g, "&gt;");
 }
 
-export function exportPromptAsMarkdown(promptText: string) {
-  const content = promptText || "";
-  downloadFile(makeFilename("md"), content, "text/markdown;charset=utf-8");
+export function buildTxtExport(promptText: string): string {
+  return promptText || "";
 }
 
-export function exportPromptAsHtml(promptText: string) {
-  const html = `<!DOCTYPE html>
+export function buildMdExport(promptText: string): string {
+  return promptText || "";
+}
+
+export function buildHtmlExport(promptText: string): string {
+  return `<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
@@ -48,6 +47,16 @@ export function exportPromptAsHtml(promptText: string) {
   <pre>${escapeHtml(promptText || "")}</pre>
 </body>
 </html>`;
+}
 
-  downloadFile(makeFilename("html"), html, "text/html;charset=utf-8");
+export function exportPromptAsTxt(promptText: string) {
+  downloadFile(makeFilename("txt"), buildTxtExport(promptText), "text/plain;charset=utf-8");
+}
+
+export function exportPromptAsMarkdown(promptText: string) {
+  downloadFile(makeFilename("md"), buildMdExport(promptText), "text/markdown;charset=utf-8");
+}
+
+export function exportPromptAsHtml(promptText: string) {
+  downloadFile(makeFilename("html"), buildHtmlExport(promptText), "text/html;charset=utf-8");
 }

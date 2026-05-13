@@ -89,6 +89,8 @@ export async function POST(req: Request) {
     }
 
     const user = await getRequestUser(req);
+    if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
     let workspaceId = typeof body.workspaceId === "number" && Number.isInteger(body.workspaceId) ? body.workspaceId : null;
     const { category, tags, metadata } = normalizePayload(body);
 
@@ -97,7 +99,7 @@ export async function POST(req: Request) {
       workspaceId = workspace.id;
     }
 
-    const created = await createPrompt(title, content, user?.id ?? null, workspaceId ?? null, { category, tags, metadata });
+    const created = await createPrompt(title, content, user.id, workspaceId ?? null, { category, tags, metadata });
     return NextResponse.json(toPublic(created), { status: 201 });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Create prompt error";

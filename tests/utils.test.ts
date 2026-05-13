@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-
+// @ts-expect-error runtime import for node --experimental-strip-types
 import { cn, hasUserMadeSelections, isEmptySelection } from "../src/lib/utils.ts";
+
+
 
 test("cn склеивает только truthy классы", () => {
   assert.equal(cn("btn", undefined, "btn-primary", null, false), "btn btn-primary");

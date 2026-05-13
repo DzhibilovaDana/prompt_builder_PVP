@@ -1,21 +1,9 @@
-C4Container
-    title Prompt Builder PVP - C4 L2 Container Diagram
-
-    Person(author, "Автор", "Собирает промпты в UI")
-    Person(admin, "Администратор", "Управляет конфигурацией")
-
-    System_Boundary(pb, "Prompt Builder PVP") {
-      Container(web, "Next.js Web UI", "TypeScript, React", "UI конструктора и админ-панель")
-      Container(api, "API Routes", "Next.js Route Handlers", "Конфиги, пресеты, генерация")
-      ContainerDb(cfg, "Config DB", "SQLite (MVP) / PostgreSQL + Prisma (MUP)", "Конфиги, пресеты, версии")
-    }
-
-    System_Ext(obj, "Object Storage (planned)", "S3/MinIO")
-    System_Ext(llm, "LLM Provider (planned)", "OpenAI/другие провайдеры")
-
-    Rel(author, web, "Работает в конструкторе", "HTTPS")
-    Rel(admin, web, "Работает в админке", "HTTPS")
-    Rel(web, api, "Вызывает API", "HTTPS")
-    Rel(api, cfg, "Читает/пишет конфиг и пресеты", "SQL")
-    Rel(api, obj, "Сохраняет/читает артефакты", "S3 API")
-    Rel(api, llm, "Отправляет prompt", "HTTPS API")
+flowchart LR
+  B[Browser] --> N[Next.js Web Application]
+  N --> API[Next.js API Routes]
+  API --> AUTH[Auth/Session Subsystem]
+  API --> PB[Prompt Builder]
+  API --> CAT[Catalog/Search]
+  API --> VER[Versioning/Export]
+  API --> ADM[Admin Config Editor]
+  API --> P[(PostgreSQL)]
