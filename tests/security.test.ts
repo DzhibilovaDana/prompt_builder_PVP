@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+// @ts-expect-error runtime import for node --experimental-strip-types
 import { hasSuspiciousPayload } from "../src/lib/security.ts";
+
 
 test("detects echo|base64|bash payload", () => {
   const payload = {
