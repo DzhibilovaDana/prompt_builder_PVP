@@ -16,6 +16,46 @@ const hasValuePlaceholder = (tpl?: string) => !!tpl && /\{\{\s*value\s*\}\}/i.te
 const nonEmpty = (v: unknown) => (typeof v === "string" ? v.trim().length > 0 : !!v);
 const requiresUserInput = (field: { type?: string; promptTemplate?: string }) =>
   field?.type === "text" && hasValuePlaceholder(field?.promptTemplate || "");
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const parseStoredRecord = (raw: string | null): Record<string, Record<string, FieldValue>> => {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isPlainObject(parsed)) return {};
+    const result: Record<string, Record<string, FieldValue>> = {};
+    for (const [formatId, value] of Object.entries(parsed)) {
+      if (!isPlainObject(value)) continue;
+      const safeFields: Record<string, FieldValue> = {};
+      for (const [fieldId, fieldValue] of Object.entries(value)) {
+        if (typeof fieldValue === "string" || typeof fieldValue === "boolean" || typeof fieldValue === "undefined") {
+          safeFields[fieldId] = fieldValue;
+        }
+      }
+      result[formatId] = safeFields;
+    }
+    return result;
+  } catch {
+    return {};
+  }
+};
+
+const parseStoredExpertWeights = (raw: string | null): Record<string, number> => {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isPlainObject(parsed)) return {};
+    const result: Record<string, number> = {};
+    for (const [expertName, weight] of Object.entries(parsed)) {
+      if (typeof weight !== "number" || Number.isNaN(weight)) continue;
+      result[expertName] = Math.max(0, Math.min(100, Math.round(weight)));
+    }
+    return result;
+  } catch {
+    return {};
+  }
+};
 
 /**
  * usePromptBuilder
@@ -52,8 +92,7 @@ export const usePromptBuilder = (config: AppConfig | null) => {
   const [formatValues, setFormatValues] = useState<Record<string, Record<string, FieldValue>>>(() => {
     try {
       if (typeof window !== "undefined") {
-        const raw = localStorage.getItem(FORMAT_VALUES_KEY);
-        if (raw) return JSON.parse(raw);
+        return parseStoredRecord(localStorage.getItem(FORMAT_VALUES_KEY));
       }
     } catch {}
     return {};
@@ -63,8 +102,7 @@ export const usePromptBuilder = (config: AppConfig | null) => {
   const [expertWeights, setExpertWeightsState] = useState<Record<string, number>>(() => {
     try {
       if (typeof window !== "undefined") {
-        const raw = localStorage.getItem(EXPERT_WEIGHTS_KEY);
-        if (raw) return JSON.parse(raw);
+        return parseStoredExpertWeights(localStorage.getItem(EXPERT_WEIGHTS_KEY));
       }
     } catch {}
     return {};
